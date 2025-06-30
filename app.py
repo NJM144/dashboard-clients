@@ -75,9 +75,9 @@ def dashboard():
 @app.route("/details/<client>")
 def detail_client(client):
     try:
-        df = pd.read_csv("data.csv", sep=";", encoding="utf-8", on_bad_lines="skip")
+        df = pd.read_csv("ListeTransfertdu_2025-06-01_au_2025-06-25.csv", sep=";", encoding="utf-8", on_bad_lines="skip")
     except:
-        df = pd.read_csv("data.csv", sep=",", encoding="utf-8", on_bad_lines="skip")
+        df = pd.read_csv("ListeTransfertdu_2025-06-01_au_2025-06-25.csv", sep=",", encoding="utf-8", on_bad_lines="skip")
 
     sous_df = df[df["EXPEDITEUR"] == client]
     total = sous_df["PRIX"].sum()
