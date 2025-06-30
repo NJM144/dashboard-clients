@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, jsonify
+from flask import Flask, render_template, jsonify
 import pandas as pd
 import plotly.express as px
 import plotly.io as pio
@@ -70,7 +70,8 @@ def dashboard():
     </body>
     </html>
     """
-    return render_template_string(page, html_ca=html_ca, html_freq=html_freq, html_colis=html_colis)
+    return render_template("index.html", html_ca=html_ca, html_freq=html_freq, html_colis=html_colis)
+
 
 @app.route("/details/<client>")
 def detail_client(client):
