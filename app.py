@@ -1,98 +1,88 @@
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, request, jsonify
 import pandas as pd
 import plotly.express as px
 import plotly.io as pio
+from datetime import datetime
 
 app = Flask(__name__)
 
-@app.route("/")
-def dashboard():
-    fichier = "ListeTransfertdu_2025-06-01_au_2025-06-25.csv"
-    try:
-        df = pd.read_csv(fichier, sep=";", encoding="utf-8", on_bad_lines="skip")
-    except Exception:
-        df = pd.read_csv(fichier, sep=",", encoding="utf-8", on_bad_lines="skip")
+# Charger les données
+DATA_PATH = "data/ListeTransfertdu_2025-06-01_au_2025-06-25.csv"
+df = pd.read_csv(DATA_PATH, sep=';', on_bad_lines='skip')
+df["DATE DU TRANSFERT"] = pd.to_datetime(df["DATE DU TRANSFERT"], errors='coerce')
 
-    # Données pour les graphiques
-    ca_client = df.groupby("EXPEDITEUR")["PRIX"].sum().reset_index()
-    freq_envois = df.groupby("EXPEDITEUR")["REFERENCE"].count().reset_index()
-    colis_type = df["TYPE COLIS"].value_counts().reset_index()
-    colis_type.columns = ["Type", "Quantité"]
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    # Récupération des filtres
+    selected_client = request.form.get("client")
+    selected_type = request.form.get("type_colis")
+    selected_annee = request.form.get("annee")
+    selected_mois = request.form.get("mois")
 
-    # Graphiques Plotly
-    fig_ca = px.bar(ca_client, x="EXPEDITEUR", y="PRIX", title="💰 CA par client")
-    fig_freq = px.bar(freq_envois, x="EXPEDITEUR", y="REFERENCE", title="📦 Fréquence des envois")
-    fig_colis = px.pie(colis_type, names="Type", values="Quantité", title="📦 Consommation de cartons")
+    df_filtered = df.copy()
 
-    html_ca = pio.to_html(fig_ca, full_html=False, include_plotlyjs='cdn', div_id="ca_plot")
-    html_freq = pio.to_html(fig_freq, full_html=False, include_plotlyjs='cdn', div_id="freq_plot")
-    html_colis = pio.to_html(fig_colis, full_html=False, include_plotlyjs='cdn', div_id="colis_plot")
+    # Filtres dynamiques
+    if selected_client and selected_client != "Tous":
+        df_filtered = df_filtered[df_filtered["EXPEDITEUR"] == selected_client]
+    if selected_type and selected_type != "Tous":
+        df_filtered = df_filtered[df_filtered["TYPE COLIS"] == selected_type]
+    if selected_annee and selected_annee != "Tous":
+        df_filtered = df_filtered[df_filtered["DATE DU TRANSFERT"].dt.year == int(selected_annee)]
+    if selected_mois and selected_mois != "Tous":
+        df_filtered = df_filtered[df_filtered["DATE DU TRANSFERT"].dt.month == int(selected_mois)]
 
-    page = """
-    <html>
-    <head>
-        <title>Dashboard Clients & Produits</title>
-        <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-    </head>
-    <body>
-        <h1>Dashboard Clients & Produits</h1>
+    # KPIs
+    kpi_ca = int(df_filtered["MONTANT PAYER"].sum())
+    kpi_volume = int(df_filtered["QUANTITE"].sum())
+    kpi_colis = df_filtered.shape[0]
 
-        <h2>💰 CA par client (cliquable)</h2>
-        {{ html_ca | safe }}
-        <div id="details_ca"></div>
+    # Graphique 1 : Top 10 clients
+    ca_client = df_filtered.groupby("EXPEDITEUR")["MONTANT PAYER"].sum().reset_index()
+    ca_client = ca_client.sort_values("MONTANT PAYER", ascending=False).head(10)
+    fig1 = px.bar(ca_client, x="EXPEDITEUR", y="MONTANT PAYER",
+                 title="Top 10 Clients - Chiffre d'affaires",
+                 labels={"EXPEDITEUR": "Client", "MONTANT PAYER": "Montant Payé (FCFA)"})
 
-        <h2>📦 Fréquence des envois</h2>
-        {{ html_freq | safe }}
+    # Graphique 2 :  Top 5 types de colis
+    colis_type = df_filtered["TYPE COLIS"].value_counts().reset_index().head(5)
+    colis_type.columns = ["TYPE COLIS", "COUNT"]
+    fig2 = px.pie(colis_type, names="TYPE COLIS", values="COUNT", title="Top 5 des types de colis")
 
-        <h2>📦 Consommation de cartons</h2>
-        {{ html_colis | safe }}
+    # Graphique 3 : Fréquence d'envoi quotidienne
+    daily_freq = df_filtered.dropna(subset=["DATE DU TRANSFERT"])
+    daily_freq = daily_freq.groupby(daily_freq["DATE DU TRANSFERT"].dt.date).size().reset_index(name="nb_envois")
+    fig3 = px.line(daily_freq, x="DATE DU TRANSFERT", y="nb_envois", title="Fréquence d'envoi quotidienne")
 
-        <script>
-            const ca_plot = document.getElementById('ca_plot');
-            ca_plot.on('plotly_click', function(data){
-                const client = data.points[0].x;
-                fetch(`/details/${client}`)
-                    .then(res => res.json())
-                    .then(info => {
-                        let details = `<h3>Détails pour ${info.client}</h3>
-                            <p>📦 Nombre d'envois : ${info.total_envois}</p>
-                            <p>💰 CA total : ${info.ca_total} €</p>
-                            <p>📅 Dernier envoi : ${info.dernier_envoi}</p>
-                            <p>🗂️ Types de colis :<ul>`;
-                        for (let type in info.types_colis) {
-                            details += `<li>${type} → ${info.types_colis[type]}</li>`;
-                        }
-                        details += `</ul></p>`;
-                        document.getElementById("details_ca").innerHTML = details;
-                    });
-            });
-        </script>
-    </body>
-    </html>
-    """
-    return render_template("index.html", html_ca=html_ca, html_freq=html_freq, html_colis=html_colis)
+    
 
+    # Valeurs des menus déroulants
+    clients = ["Tous"] + sorted(df["EXPEDITEUR"].dropna().unique().tolist())
+    types = ["Tous"] + sorted(df["TYPE COLIS"].dropna().unique().tolist())
+    annees = ["Tous"] + sorted(df["DATE DU TRANSFERT"].dropna().dt.year.unique().astype(str))
+    mois = ["Tous"] + [str(m).zfill(2) for m in sorted(df["DATE DU TRANSFERT"].dropna().dt.month.unique())]
 
-@app.route("/details/<client>")
-def detail_client(client):
-    try:
-        df = pd.read_csv("ListeTransfertdu_2025-06-01_au_2025-06-25.csv", sep=";", encoding="utf-8", on_bad_lines="skip")
-    except:
-        df = pd.read_csv("ListeTransfertdu_2025-06-01_au_2025-06-25.csv", sep=",", encoding="utf-8", on_bad_lines="skip")
+    return render_template("index.html",
+                           graph1=pio.to_html(fig1, full_html=False),
+                           graph2=pio.to_html(fig2, full_html=False),
+                           graph3=pio.to_html(fig3, full_html=False),
+                           clients=clients,
+                           types=types,
+                           annees=annees,
+                           mois=mois,
+                           selected_client=selected_client,
+                           selected_type=selected_type,
+                           selected_annee=selected_annee,
+                           selected_mois=selected_mois,
+                           kpi_ca=kpi_ca,
+                           kpi_volume=kpi_volume,
+                           kpi_colis=kpi_colis)
 
-    sous_df = df[df["EXPEDITEUR"] == client]
-    total = sous_df["PRIX"].sum()
-    count = len(sous_df)
-    last_date = sous_df["DATE DU TRANSFERT"].max()
-    colis_types = sous_df["TYPE COLIS"].value_counts().to_dict()
+@app.route('/client_detail', methods=['POST'])
+def client_detail():
+    client = request.json.get("client")
+    client_data = df[df["EXPEDITEUR"] == client][["DATE DU TRANSFERT", "DESTINATEUR", "TYPE COLIS", "QUANTITE", "MONTANT PAYER"]]
+    records = client_data.to_dict(orient="records")
+    return jsonify(records)
 
-    return jsonify({
-        "client": client,
-        "total_envois": int(count),
-        "ca_total": float(total),
-        "dernier_envoi": last_date,
-        "types_colis": colis_types
-    })
-
-if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+if __name__ == '__main__':
+    app.run(debug=True)
