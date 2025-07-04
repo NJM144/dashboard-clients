@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.io as pio
 from datetime import datetime
+import plotly
 
 app = Flask(__name__)
 
@@ -36,12 +37,15 @@ def index():
     kpi_volume = int(df_filtered["QUANTITE"].sum())
     kpi_colis = df_filtered.shape[0]
 
-    # Graphique 1 : Top 10 clients
+    # Graphique 1 : Top 10 clients (cliquable)
     ca_client = df_filtered.groupby("EXPEDITEUR")["MONTANT PAYER"].sum().reset_index()
     ca_client = ca_client.sort_values("MONTANT PAYER", ascending=False).head(10)
     fig1 = px.bar(ca_client, x="EXPEDITEUR", y="MONTANT PAYER",
-                 title="Top 10 Clients - Chiffre d'affaires",
-                 labels={"EXPEDITEUR": "Client", "MONTANT PAYER": "Montant Payé (FCFA)"})
+                  title="Top 10 Clients - Chiffre d'affaires",
+                  labels={"EXPEDITEUR": "Client", "MONTANT PAYER": "Montant Payé (FCFA)"})
+    fig1.update_traces(customdata=ca_client["EXPEDITEUR"],
+                       hovertemplate='Client: %{x}<br>Montant: %{y} FCFA<br>')
+    fig1.update_layout(clickmode='event+select')
 
     # Graphique 2 :  Top 5 types de colis
     colis_type = df_filtered["TYPE COLIS"].value_counts().reset_index().head(5)
@@ -52,8 +56,6 @@ def index():
     daily_freq = df_filtered.dropna(subset=["DATE DU TRANSFERT"])
     daily_freq = daily_freq.groupby(daily_freq["DATE DU TRANSFERT"].dt.date).size().reset_index(name="nb_envois")
     fig3 = px.line(daily_freq, x="DATE DU TRANSFERT", y="nb_envois", title="Fréquence d'envoi quotidienne")
-
-    
 
     # Valeurs des menus déroulants
     clients = ["Tous"] + sorted(df["EXPEDITEUR"].dropna().unique().tolist())
@@ -80,7 +82,7 @@ def index():
 @app.route('/client_detail', methods=['POST'])
 def client_detail():
     client = request.json.get("client")
-    client_data = df[df["EXPEDITEUR"] == client][["DATE DU TRANSFERT", "DESTINATEUR", "TYPE COLIS", "QUANTITE", "MONTANT PAYER"]]
+    client_data = df[df["EXPEDITEUR"] == client][["DATE DU TRANSFERT", "DESTINATAIRE", "TYPE COLIS", "QUANTITE", "MONTANT PAYER"]]
     records = client_data.to_dict(orient="records")
     return jsonify(records)
 
