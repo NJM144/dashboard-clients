@@ -3,3 +3,4 @@ gunicorn==21.2.0      # WSGI server conseillé par Render
 pandas==2.2.2         # manipulations de données
 plotly==5.22.0        # graphiques interactifs
 python-dotenv==1.0.1  # (facultatif) charger .env en local/CI
+pandas>=2.2.3
