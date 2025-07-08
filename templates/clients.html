@@ -1,68 +1,12 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <title>Dashboard AMT Transit</title>
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
-</head>
-<body class="bg-yellow-100 text-gray-900">
-    <div class="w-full mx-auto px-4 py-6 p-4">
-        <!-- <h1 class="text-3xl font-bold text-center mb-4">📦 Dashboard Logistique - AMT Transit</h1> -->
-        <!-- Header avec menu horizontal -->
-    <nav class="ml-80 px-14 py-3 flex gap-6 ">
-        
-        <a href="{{ url_for('dashboard') }}" class="font-semibold text-white bg-blue-400  p-4 rounded-xl shadow text-center w-54"></i>Performance & Finances</a> 
-        <a href="{{ url_for('clients') }}" class="font-semibold bg-blue-600  p-4 rounded-xl shadow text-center text-white w-48 ">Clients</a>
-        <a href="{{ url_for('tournees') }}" class="font-semibold bg-blue-400  p-4 rounded-xl shadow text-center text-white w-48 ">Tournées</a>
-        <a href="{{ url_for('logistique') }}" class="font-semibold bg-blue-400  p-4 rounded-xl shadow text-center text-white w-48">Logistique & Stock</a>
-        <a href="{{ url_for('alertes') }}" class="font-semibold bg-blue-400  p-4 rounded-xl shadow text-center bg-blue-400 text-white ">Alertes & Diagnostic</a>
-    </nav>
 
-        <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
-            <!-- Filtres -->
-            <form method="POST" class="md:col-span-3 bg-white p-4 rounded-xl shadow space-y-4 md:ml-0">
-                <div>
-                    <label class="block mb-1 font-semibold">Année</label>
-                    <select name="annee" class="w-full p-2 border rounded">
-                        {% for a in annees %}
-                            <option value="{{ a }}" {% if selected_annee == a %}selected{% endif %}>{{ a }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label class="block mb-1 font-semibold">Mois</label>
-                    <select name="mois" class="w-full p-2 border rounded">
-                        {% for m in mois %}
-                            <option value="{{ m }}" {% if selected_mois == m %}selected{% endif %}>{{ m }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label class="block mb-1 font-semibold">Type de colis</label>
-                    <select name="type_colis" class="w-full p-2 border rounded">
-                        {% for t in types %}
-                            <option value="{{ t }}" {% if selected_type == t %}selected{% endif %}>{{ t }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label class="block mb-1 font-semibold">Client</label>
-                    <select name="client" class="w-full p-2 border rounded">
-                        {% for c in clients %}
-                            <option value="{{ c }}" {% if selected_client == c %}selected{% endif %}>{{ c }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <button class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
-                    Appliquer les filtres
-                </button>
-            </form>
+{% extends 'layout.html' %}
 
-            <!-- Données et graphiques -->
-            <div class="md:col-span-9 space-y-6 mr-4">
+{% block title %}Analyse Clients{% endblock %}
+
+{% block content %}
+<!-- Ton contenu ici (KPI, Graphs) -->
+ <div class="md:col-span-9 space-y-6 mr-4">
                 <!-- KPIs -->
                 <div class="grid grid-cols-1 sm:grid-cols-5 gap-4">
                     <div class="bg-white p-4 rounded-xl shadow text-center">
@@ -71,15 +15,15 @@
                     </div>
                     <div class="bg-white p-4 rounded-xl shadow text-center">
                         <p class="text-sm text-gray-500">Top 1 client en CA</p>
-                        <p class="text-xl font-bold text-green-600">{{ kpi_top1 }}</p>
+                        <p class="text-lg font-bold text-green-600">{{ kpi_top1 }} avec {{top_ca}} F</p>
                     </div>
                     <div class="bg-white p-4 rounded-xl shadow text-center">
                         <p class="text-sm text-gray-500">Client avec le plus de livraisons</p>
-                        <p class="text-xl font-bold text-purple-600">{{ kpi_nb_livraisons }}</p>
+                        <p class="text-xl font-bold text-purple-600">{{ client_name }} avec {{nb_livraisons}}</p>
                     </div>
                     <div class="bg-white p-4 rounded-xl shadow text-center">
                         <p class="text-sm text-gray-500">Taux moyen d'impayé par client</p>
-                        <p class="text-xl font-bold text-purple-600">{{ kpi_taux_paiement }}</p>
+                        <p class="text-xl font-bold text-purple-600">{{ taux_moyen_impaye }} %</p>
                     </div>
                     <!-- <div class="bg-white p-4 rounded-xl shadow text-center">
                         <p class="text-sm text-gray-500">Montant total restant à payer</p>
@@ -88,10 +32,18 @@
                 </div>
 
                 <!-- Graphiques -->
-                
+                <div class="space-y-8">
+                    <div class="bg-white p-4 rounded-lg shadow">
+                        {{ graph1|safe }}
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow">
+                        {{ graph2|safe }}
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow">
+                        {{ graph3|safe }}
+                    </div>
+                    
+                </div>
                 
             </div>
-        </div>
-    </div>
-</body>
-</html>
+{% endblock %}
