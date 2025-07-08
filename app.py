@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.io as pio
 from datetime import datetime
+import plotly
 
 app = Flask(__name__)
 
@@ -113,7 +114,7 @@ def prediction():
 @app.route('/client_detail', methods=['POST'])
 def client_detail():
     client = request.json.get("client")
-    client_data = df[df["EXPEDITEUR"] == client][["DATE DU TRANSFERT", "DESTINATEUR", "TYPE COLIS", "QUANTITE", "MONTANT PAYER"]]
+    client_data = df[df["EXPEDITEUR"] == client][["DATE DU TRANSFERT", "DESTINATAIRE", "TYPE COLIS", "QUANTITE", "MONTANT PAYER"]]
     records = client_data.to_dict(orient="records")
     return jsonify(records)
 
