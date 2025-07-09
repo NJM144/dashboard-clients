@@ -251,7 +251,7 @@ def dashboard():
 
 from flask import request, render_template
 
-<<<<<<< Updated upstream
+
 @app.route("/prediction", methods=["GET", "POST"])
 def prediction():
     if model_pred is None:
@@ -330,18 +330,18 @@ def prediction():
         pred_colis=pred_colis,
         pred_benef=pred_benef,
         pred_credit=pred_credit,
-<<<<<<< Updated upstream
+
         graph_colis=graph_colis,
         graph_benef=graph_benef,
         graph_credit=graph_credit
     )
 
-=======
+
         graph_colis=fig_colis,
         graph_benef=fig_benef,
         graph_credit=fig_credit
     )
->>>>>>> Stashed changes
+
 
 @app.route('/performance', methods=['GET', 'POST'])
 def performance():
