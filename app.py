@@ -19,7 +19,7 @@ from joblib import load
 from joblib import load
 import os
 
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "model_random_forest.joblib")
+MODEL_PATH = os.path.join(os.path.dirname(__file__),  "model_random_forest.joblib")
 
 try:
     model_pred = load(MODEL_PATH)
