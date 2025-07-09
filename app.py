@@ -337,10 +337,7 @@ def prediction():
     )
 
 
-        graph_colis=fig_colis,
-        graph_benef=fig_benef,
-        graph_credit=fig_credit
-    )
+
 
 
 @app.route('/performance', methods=['GET', 'POST'])
