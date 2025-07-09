@@ -287,7 +287,7 @@ def prediction():
     graph_colis  = make_fig("QUANTITE",        "Historique quantité + prédiction", pred_colis)
     graph_benef  = make_fig("BENEFICE",        "Historique bénéfice + prédiction", pred_benef)
     graph_credit = make_fig("RESTANT A PAYER", "Historique crédit + prédiction",   pred_credit)
-=======
+
 @app.route('/prediction', methods=['GET', 'POST'])
 def prediction():
     # 1) Date saisie ou valeur par défaut (demain)
@@ -322,7 +322,7 @@ def prediction():
     fig_colis  = make_fig('QUANTITE', "Historique quantité + prédiction")
     fig_benef  = make_fig('BENEFICE', "Historique bénéfice + prédiction")
     fig_credit = make_fig('RESTANT A PAYER', "Historique crédit + prédiction")
->>>>>>> Stashed changes
+
 
     return render_template(
         "prediction.html",
