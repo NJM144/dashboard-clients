@@ -17,69 +17,6 @@ df = pd.read_csv(DATA_PATH, sep=';')
 df["DATE DU TRANSFERT"] = pd.to_datetime(df["DATE DU TRANSFERT"], format="%d/%m/%Y %H:%M", errors="coerce")
 
 
-@app.route('/dashboard', methods=['GET', 'POST'])
-def dashboard():
-    # Récupération des filtres
-    selected_client = request.form.get("client")
-    selected_type = request.form.get("type_colis")
-    selected_annee = request.form.get("annee")
-    selected_mois = request.form.get("mois")
-    selected_date = request.form.get("date_specifique")
-
-
-    df_filtered = df.copy()
-
-    # Filtres dynamiques
-    if selected_client and selected_client != "Tous":
-        df_filtered = df_filtered[df_filtered["EXPEDITEUR"] == selected_client]
-    if selected_type and selected_type != "Tous":
-        df_filtered = df_filtered[df_filtered["TYPE COLIS"] == selected_type]
-    if selected_annee and selected_annee != "Tous":
-        df_filtered = df_filtered[df_filtered["DATE DU TRANSFERT"].dt.year == int(selected_annee)]
-    if selected_mois and selected_mois != "Tous":
-        df_filtered = df_filtered[df_filtered["DATE DU TRANSFERT"].dt.month == int(selected_mois)]
-    if selected_date:
-        date_selected = pd.to_datetime(selected_date, errors='coerce')
-        df_filtered = df_filtered[df_filtered['DATE DU TRANSFERT'].dt.date == date_selected.date()]
-
-
-    # KPIs
-    kpi_ca = int(df_filtered["MONTANT PAYER"].sum())
-    kpi_volume = int(df_filtered["QUANTITE"].sum())
-    kpi_nb_livraisons = df_filtered.shape[0]
-    kpi_taux_paiement= round((df_filtered['MONTANT PAYER'] / df_filtered['PRIX']).mean() * 100, 2)
-    kpi_restant_total=int(df_filtered["RESTANT A PAYER"].sum())
-
- 
-
-    df_clients = df_filtered.groupby('EXPEDITEUR')[['MONTANT PAYER', 'RESTANT A PAYER']].sum().reset_index()
-    df_clients = df_clients.sort_values(['RESTANT A PAYER'], ascending=False).head(10)  # Top 10
-
-    import plotly.express as px
-    fig1 = px.bar(df_clients, x='EXPEDITEUR', y=['MONTANT PAYER', 'RESTANT A PAYER'],
-                        title="Impayés par client",labels={"EXPEDITEUR": "Client", "value": "Montant", "variable": "Type"},barmode='stack')
-
-
-    df_filtered['Statut Paiement'] = df_filtered['MONTANT PAYER'].apply(lambda x: 'Paiement partiel' if x > 0 else 'Aucun paiement')
-    statut_counts = df_filtered['Statut Paiement'].value_counts().reset_index()
-    statut_counts.columns = ['Statut', 'Nombre']
-
-    fig2 = px.pie(statut_counts, names='Statut', values='Nombre',
-                    )
-
-    # Graphique 3 : Fréquence d'envoi quotidienne
-    daily_freq = df_filtered.dropna(subset=["DATE DU TRANSFERT"])
-    daily_freq = daily_freq.groupby(daily_freq["DATE DU TRANSFERT"].dt.date).size().reset_index(name="nombre d'expéditions")
-    fig3 = px.line(daily_freq, x="DATE DU TRANSFERT", y="nombre d'expéditions")
-
-    
-
-
-    # Valeurs des menus déroulants
-    clients = ["Tous"] + sorted(df["EXPEDITEUR"].dropna().unique().tolist())
-    types = ["Tous"] + sorted(df["TYPE COLIS"].dropna().unique().tolist())
-    annees = ["Tous"] + sorted(df["DATE DU TRANSFERT"].dropna().dt.year.unique().astype(str))
-    mois = ["Tous"] + [str(m).zfill(2) for m in sorted(df["DATE DU TRANSFERT"].dropna().dt.month.unique())]
 
 # ────────────────────────────────────────────────────────────
 #  ROUTE  /dashboard  (remplace entièrement l’ancienne)
