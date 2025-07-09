@@ -56,6 +56,44 @@ def filter_df(df_source: pd.DataFrame, form: Dict[str, str]) -> pd.DataFrame:
 
     return df_out
 
+# ───────────────── Préparation du modèle de prédiction ────────────────────
+import os, pandas as pd
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
+from datetime import date as _date
+
+CSV_PATH = os.path.join(os.path.dirname(__file__), "data", "Transferts_complet.csv")
+
+def train_prediction_model(csv_path=CSV_PATH):
+    df = pd.read_csv(csv_path, sep=';')
+    df['DATE DU TRANSFERT'] = pd.to_datetime(df['DATE DU TRANSFERT'], errors='coerce')
+    df['jour'] = df['DATE DU TRANSFERT'].dt.date
+
+    daily = (df.groupby('jour')
+               .agg({'QUANTITE':'sum','MONTANT PAYER':'sum',
+                     'RESTANT A PAYER':'sum','PRIX':'sum'})
+               .reset_index())
+    daily['BENEFICE'] = daily['PRIX']
+    daily['jour_semaine'] = pd.to_datetime(daily['jour']).dt.dayofweek
+    daily['mois'] = pd.to_datetime(daily['jour']).dt.month
+
+    X = daily[['jour_semaine', 'mois']]
+    y = daily[['QUANTITE','BENEFICE','RESTANT A PAYER']]
+
+    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.25, random_state=42)
+    model = RandomForestRegressor(n_estimators=200, random_state=42)
+    model.fit(Xtr, ytr)
+
+    return model, daily
+
+# Entraînement (ou chargement) une fois pour toutes
+try:
+    model_pred, df_daily_hist = train_prediction_model()
+except FileNotFoundError:
+    # Affiche clairement dans les logs Render si le CSV est absent
+    import logging
+    logging.error(f"CSV introuvable à {CSV_PATH}. La page /prediction ne fonctionnera pas.")
+    model_pred, df_daily_hist = None, None
 
 
 # ────────────────────────────────────────────────────────────
