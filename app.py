@@ -7,6 +7,35 @@ import plotly
 
 app = Flask(__name__)
 
+# --- Fonctions utilitaires ---------------------------------------------------
+from typing import Dict
+def filter_df(df_source: pd.DataFrame, form: Dict[str, str]) -> pd.DataFrame:
+    """Applique les filtres présents dans request.form à df_source."""
+    df_out = df_source.copy()
+    if (client := form.get("client")) and client != "Tous":
+        df_out = df_out[df_out["EXPEDITEUR"] == client]
+
+    if (type_colis := form.get("classe_colis") or form.get("type_colis")) \
+       and type_colis != "Tous":
+        # les deux noms existent selon la route
+        col = "CLASSE_COLIS" if "classe_colis" in form else "TYPE COLIS"
+        df_out = df_out[df_out[col] == type_colis]
+
+    if (annee := form.get("annee")) and annee != "Tous":
+        df_out = df_out[df_out["DATE DU TRANSFERT"].dt.year == int(annee)]
+
+    if (mois := form.get("mois")) and mois != "Tous":
+        df_out = df_out[df_out["DATE DU TRANSFERT"].dt.month == int(mois)]
+
+    if (date_spec := form.get("date_specifique")):
+        date_selected = pd.to_datetime(date_spec, errors='coerce')
+        df_out = df_out[df_out['DATE DU TRANSFERT'].dt.date == date_selected.date()]
+
+    return df_out
+
+
+
+
 @app.route('/')
 def home():
     return render_template('home.html')
@@ -17,88 +46,272 @@ df = pd.read_csv(DATA_PATH, sep=';')
 df["DATE DU TRANSFERT"] = pd.to_datetime(df["DATE DU TRANSFERT"], format="%d/%m/%Y %H:%M", errors="coerce")
 
 
+# ────────────────────────────────────────────────────────────
+#  ROUTE  /dashboard  (remplace entièrement l’ancienne)
+# ────────────────────────────────────────────────────────────
 @app.route('/dashboard', methods=['GET', 'POST'])
 def dashboard():
-    # Récupération des filtres
-    selected_client = request.form.get("client")
-    selected_type = request.form.get("type_colis")
-    selected_annee = request.form.get("annee")
-    selected_mois = request.form.get("mois")
-    selected_date = request.form.get("date_specifique")
+    # ---------- 1. Récupération des filtres ---------------------------------
+    selected_client   = request.form.get("client")
+    selected_type     = request.form.get("type_colis")       # ou classe_colis selon ton HTML
+    selected_annee    = request.form.get("annee")
+    selected_mois     = request.form.get("mois")
+    selected_date     = request.form.get("date_specifique")
 
+    # ---------- 2. Filtrage centralisé --------------------------------------
+    df_filtered = filter_df(df, request.form)  # << utilise ta fonction utilitaire
 
-    df_filtered = df.copy()
+    # ---------- 3. KPI "généraux" (ceux que tu avais déjà) ------------------
+    kpi_ca            = int(df_filtered["MONTANT PAYER"].sum())
+    kpi_volume        = int(df_filtered["QUANTITE"].sum())
+    kpi_nb_livraisons = len(df_filtered)
+    kpi_taux_paiement = round(
+        (df_filtered['MONTANT PAYER'] / df_filtered['PRIX']).mean(skipna=True) * 100, 2
+    )
+    kpi_restant_total = int(df_filtered["RESTANT A PAYER"].sum())
 
-    # Filtres dynamiques
-    if selected_client and selected_client != "Tous":
-        df_filtered = df_filtered[df_filtered["EXPEDITEUR"] == selected_client]
-    if selected_type and selected_type != "Tous":
-        df_filtered = df_filtered[df_filtered["TYPE COLIS"] == selected_type]
-    if selected_annee and selected_annee != "Tous":
-        df_filtered = df_filtered[df_filtered["DATE DU TRANSFERT"].dt.year == int(selected_annee)]
-    if selected_mois and selected_mois != "Tous":
-        df_filtered = df_filtered[df_filtered["DATE DU TRANSFERT"].dt.month == int(selected_mois)]
-    if selected_date:
-        date_selected = pd.to_datetime(selected_date, errors='coerce')
-        df_filtered = df_filtered[df_filtered['DATE DU TRANSFERT'].dt.date == date_selected.date()]
+    # ---------- 4. Anciens graphiques (fig1 à fig3) --------------------------
+    df_clients = (df_filtered.groupby('EXPEDITEUR')[['MONTANT PAYER','RESTANT A PAYER']]
+                  .sum().reset_index()
+                  .sort_values('RESTANT A PAYER', ascending=False)
+                  .head(10))
+    fig1 = px.bar(df_clients, x='EXPEDITEUR',
+                  y=['MONTANT PAYER','RESTANT A PAYER'],
+                  barmode='stack', title="Impayés par client")
 
-
-    # KPIs
-    kpi_ca = int(df_filtered["MONTANT PAYER"].sum())
-    kpi_volume = int(df_filtered["QUANTITE"].sum())
-    kpi_nb_livraisons = df_filtered.shape[0]
-    kpi_taux_paiement= round((df_filtered['MONTANT PAYER'] / df_filtered['PRIX']).mean() * 100, 2)
-    kpi_restant_total=int(df_filtered["RESTANT A PAYER"].sum())
-
- 
-
-    df_clients = df_filtered.groupby('EXPEDITEUR')[['MONTANT PAYER', 'RESTANT A PAYER']].sum().reset_index()
-    df_clients = df_clients.sort_values(['RESTANT A PAYER'], ascending=False).head(10)  # Top 10
-
-    import plotly.express as px
-    fig1 = px.bar(df_clients, x='EXPEDITEUR', y=['MONTANT PAYER', 'RESTANT A PAYER'],
-                        title="Impayés par client",labels={"EXPEDITEUR": "Client", "value": "Montant", "variable": "Type"},barmode='stack')
-
-
-    df_filtered['Statut Paiement'] = df_filtered['MONTANT PAYER'].apply(lambda x: 'Paiement partiel' if x > 0 else 'Aucun paiement')
+    df_filtered['Statut Paiement'] = df_filtered['MONTANT PAYER']\
+        .apply(lambda x: 'Paiement partiel' if x > 0 else 'Aucun paiement')
     statut_counts = df_filtered['Statut Paiement'].value_counts().reset_index()
     statut_counts.columns = ['Statut', 'Nombre']
+    fig2 = px.pie(statut_counts, names='Statut', values='Nombre')
 
-    fig2 = px.pie(statut_counts, names='Statut', values='Nombre',
-                    )
+    daily_freq = (df_filtered.dropna(subset=['DATE DU TRANSFERT'])
+                  .groupby(df_filtered['DATE DU TRANSFERT'].dt.date)
+                  .size().reset_index(name="nombre d'expéditions"))
+    fig3 = px.line(daily_freq, x='DATE DU TRANSFERT', y="nombre d'expéditions")
 
-    # Graphique 3 : Fréquence d'envoi quotidienne
-    daily_freq = df_filtered.dropna(subset=["DATE DU TRANSFERT"])
-    daily_freq = daily_freq.groupby(daily_freq["DATE DU TRANSFERT"].dt.date).size().reset_index(name="nombre d'expéditions")
-    fig3 = px.line(daily_freq, x="DATE DU TRANSFERT", y="nombre d'expéditions")
+    # ---------- 5. ➜ KPI + graphes PERFORMANCE ------------------------------
+    col_class = 'CLASSE_COLIS' if 'CLASSE_COLIS' in df_filtered.columns else 'TYPE COLIS'
 
-    
+    perf_kpi = {
+        "volume_total"    : kpi_volume,
+        "nb_expeditions"  : kpi_nb_livraisons,
+        "nb_types_colis"  : df_filtered[col_class].nunique(),
+        "type_plus_frequent": (df_filtered[col_class].mode()[0]
+                               if not df_filtered[col_class].empty else 'N/A')
+    }
 
-    # Valeurs des menus déroulants
-    clients = ["Tous"] + sorted(df["EXPEDITEUR"].dropna().unique().tolist())
-    types = ["Tous"] + sorted(df["TYPE COLIS"].dropna().unique().tolist())
-    annees = ["Tous"] + sorted(df["DATE DU TRANSFERT"].dropna().dt.year.unique().astype(str))
-    mois = ["Tous"] + [str(m).zfill(2) for m in sorted(df["DATE DU TRANSFERT"].dropna().dt.month.unique())]
+    df_vol_type = (df_filtered.groupby(col_class)['QUANTITE']
+                   .sum().reset_index())
+    fig_perf1 = px.pie(df_vol_type, names=col_class, values='QUANTITE',
+                       title="Répartition du volume par type")
 
-    return render_template("dashboard.html",graph1=pio.to_html(fig1, full_html=False),
-                           graph2=pio.to_html(fig2, full_html=False),
-                           graph3=pio.to_html(fig3, full_html=False),
-                           clients=clients,
-                           types=types,
-                           annees=annees,
-                           mois=mois,
-                           selected_client=selected_client,
-                           selected_type=selected_type,
-                           selected_annee=selected_annee,
-                           selected_mois=selected_mois,
-                           selected_date=selected_date,
+    df_vol_client = (df_filtered.groupby('EXPEDITEUR')['QUANTITE']
+                     .sum().sort_values(ascending=False).head(10).reset_index())
+    fig_perf2 = px.bar(df_vol_client, x='EXPEDITEUR', y='QUANTITE',
+                       title="Top 10 clients – volume")
 
-                           kpi_ca=kpi_ca,
-                           kpi_volume=kpi_volume,
-                           kpi_nb_livraisons=kpi_nb_livraisons,
-                           kpi_taux_paiement=kpi_taux_paiement,
-                           kpi_restant_total=kpi_restant_total
-                           ) # Mets tes variables ici
+    df_temps = (df_filtered.assign(Jour=df_filtered['DATE DU TRANSFERT'].dt.date)
+                .groupby('Jour')['QUANTITE'].sum().reset_index())
+    fig_perf3 = px.line(df_temps, x='Jour', y='QUANTITE',
+                        title="Évolution quotidienne des volumes")
+
+    # ---------- 6. ➜ KPI + graphes FINANCES ---------------------------------
+    fin_kpi = {
+        "ca_total"        : kpi_ca,
+        "restant_total"   : kpi_restant_total,
+        "taux_encaissement": kpi_taux_paiement
+    }
+
+    top_ca = (df_filtered.groupby('EXPEDITEUR')['MONTANT PAYER']
+              .sum().sort_values(ascending=False).head(10).reset_index())
+    fig_fin1 = px.bar(top_ca, x='EXPEDITEUR', y='MONTANT PAYER',
+                      title="Top 10 CA")
+
+    top_imp = (df_filtered.groupby('EXPEDITEUR')['RESTANT A PAYER']
+               .sum().sort_values(ascending=False).head(10).reset_index())
+    fig_fin2 = px.bar(top_imp, x='EXPEDITEUR', y='RESTANT A PAYER',
+                      title="Top 10 impayés")
+
+    df_month = df_filtered.copy()
+    df_month['Mois'] = df_month['DATE DU TRANSFERT'].dt.to_period('M').astype(str)
+    df_month = (df_month.groupby('Mois')[['MONTANT PAYER','RESTANT A PAYER']]
+                .sum().reset_index())
+    fig_fin3 = px.line(df_month, x='Mois',
+                       y=['MONTANT PAYER','RESTANT A PAYER'],
+                       title="CA vs impayés (mensuel)")
+
+    # ---------- 7. Listes déroulantes (inchangées) --------------------------
+    clients = ["Tous"] + sorted(df["EXPEDITEUR"].dropna().unique())
+    types   = ["Tous"] + sorted(df[col_class].dropna().unique())
+    annees  = ["Tous"] + sorted(df["DATE DU TRANSFERT"].dt.year.dropna().unique().astype(str))
+    mois    = ["Tous"] + [str(m).zfill(2) for m in sorted(df["DATE DU TRANSFERT"].dt.month.dropna().unique())]
+
+    # ---------- 8. Envoi au template ---------------------------------------
+    return render_template(
+        "dashboard.html",
+
+        # --- filtres & KPIs historiques ---
+        graph1              = pio.to_html(fig1, full_html=False),
+        graph2              = pio.to_html(fig2, full_html=False),
+        graph3              = pio.to_html(fig3, full_html=False),
+        clients             = clients,
+        types               = types,
+        annees              = annees,
+        mois                = mois,
+        selected_client     = selected_client,
+        selected_type       = selected_type,
+        selected_annee      = selected_annee,
+        selected_mois       = selected_mois,
+        selected_date       = selected_date,
+        kpi_ca              = kpi_ca,
+        kpi_volume          = kpi_volume,
+        kpi_nb_livraisons   = kpi_nb_livraisons,
+        kpi_taux_paiement   = kpi_taux_paiement,
+        kpi_restant_total   = kpi_restant_total,
+
+        # --- variables pour les ONGLETs ---
+        perf_kpi = perf_kpi,
+        fin_kpi  = fin_kpi,
+        perf_g1  = pio.to_html(fig_perf1, full_html=False),
+        perf_g2  = pio.to_html(fig_perf2, full_html=False),
+        perf_g3  = pio.to_html(fig_perf3, full_html=False),
+        fin_g1   = pio.to_html(fig_fin1, full_html=False),
+        fin_g2   = pio.to_html(fig_fin2, full_html=False),
+        fin_g3   = pio.to_html(fig_fin3, full_html=False)
+    )
+
+
+@app.route('/performance', methods=['GET', 'POST'])
+def performance():
+    df_filtered = filter_df(df, request.form)
+
+    # ---------- KPIs ----------
+    volume_total = int(df_filtered['QUANTITE'].sum())
+    nb_expeditions = len(df_filtered)
+    nb_types_colis = df_filtered['CLASSE_COLIS'].nunique()
+    type_plus_frequent = (
+        df_filtered['CLASSE_COLIS'].mode()[0] if nb_types_colis > 0 else 'N/A'
+    )
+
+    # ---------- Graphiques ----------
+    # 1. Répartition du volume par type de colis
+    df_volume_type = (
+        df_filtered.groupby('CLASSE_COLIS')['QUANTITE']
+        .sum().reset_index()
+    )
+    fig1 = px.pie(
+        df_volume_type, names='CLASSE_COLIS', values='QUANTITE',
+        title="Répartition du volume par type de colis"
+    )
+
+    # 2. Top 10 clients par volume
+    df_vol_client = (
+        df_filtered.groupby('EXPEDITEUR')['QUANTITE']
+        .sum().sort_values(ascending=False).head(10).reset_index()
+    )
+    fig2 = px.bar(
+        df_vol_client, x='EXPEDITEUR', y='QUANTITE',
+        title="Top 10 clients – volume expédié"
+    )
+
+    # 3. Volume expédié dans le temps
+    df_temps = df_filtered.copy()
+    df_temps['DATE'] = df_temps['DATE DU TRANSFERT'].dt.date
+    df_temps = df_temps.groupby('DATE')['QUANTITE'].sum().reset_index()
+    fig3 = px.line(df_temps, x='DATE', y='QUANTITE',
+                   title="Évolution quotidienne des volumes")
+
+    # ---------- Options des menus ----------
+    clients = ["Tous"] + sorted(df["EXPEDITEUR"].dropna().unique())
+    types   = ["Tous"] + sorted(df["CLASSE_COLIS"].dropna().unique())
+    annees  = ["Tous"] + sorted(df["DATE DU TRANSFERT"].dt.year.dropna().unique().astype(str))
+    mois    = ["Tous"] + [str(m).zfill(2) for m in sorted(df["DATE DU TRANSFERT"].dt.month.dropna().unique())]
+
+    return render_template(
+        "performance.html",
+        graph1=pio.to_html(fig1, full_html=False),
+        graph2=pio.to_html(fig2, full_html=False),
+        graph3=pio.to_html(fig3, full_html=False),
+        clients=clients, types=types, annees=annees, mois=mois,
+        selected_client=request.form.get("client"),
+        selected_type=request.form.get("classe_colis"),
+        selected_annee=request.form.get("annee"),
+        selected_mois=request.form.get("mois"),
+        selected_date=request.form.get("date_specifique"),
+        volume_total=volume_total,
+        nb_expeditions=nb_expeditions,
+        nb_types_colis=nb_types_colis,
+        type_plus_frequent=type_plus_frequent
+    )
+
+@app.route('/finances', methods=['GET', 'POST'])
+def finances():
+    df_filtered = filter_df(df, request.form)
+
+    # ---------- KPIs ----------
+    ca_total        = int(df_filtered["MONTANT PAYER"].sum())
+    restant_total   = int(df_filtered["RESTANT A PAYER"].sum())
+    taux_encaissemt = round(
+        (df_filtered['MONTANT PAYER'] / df_filtered['PRIX']).mean()
+        * 100, 2
+    )
+
+    # ---------- Graphiques ----------
+    top_ca = (
+        df_filtered.groupby('EXPEDITEUR')['MONTANT PAYER']
+        .sum().sort_values(ascending=False).head(10).reset_index()
+    )
+    fig1 = px.bar(
+        top_ca, x='EXPEDITEUR', y='MONTANT PAYER',
+        title="Top 10 clients – chiffre d'affaires"
+    )
+
+    top_impaye = (
+        df_filtered.groupby('EXPEDITEUR')['RESTANT A PAYER']
+        .sum().sort_values(ascending=False).head(10).reset_index()
+    )
+    fig2 = px.bar(
+        top_impaye, x='EXPEDITEUR', y='RESTANT A PAYER',
+        title="Top 10 clients – impayés"
+    )
+
+    # CA & impayés par mois
+    df_month = df_filtered.copy()
+    df_month['Mois'] = df_month['DATE DU TRANSFERT'].dt.to_period('M').astype(str)
+    df_month = (
+        df_month.groupby('Mois')[['MONTANT PAYER', 'RESTANT A PAYER']]
+        .sum().reset_index()
+    )
+    fig3 = px.line(
+        df_month, x='Mois',
+        y=['MONTANT PAYER', 'RESTANT A PAYER'],
+        title="CA vs impayés (mensuel)"
+    )
+
+    # ---------- Options menus (mêmes que plus haut) ----------
+    clients = ["Tous"] + sorted(df["EXPEDITEUR"].dropna().unique())
+    types   = ["Tous"] + sorted(df["TYPE COLIS"].dropna().unique())
+    annees  = ["Tous"] + sorted(df["DATE DU TRANSFERT"].dt.year.dropna().unique().astype(str))
+    mois    = ["Tous"] + [str(m).zfill(2) for m in sorted(df["DATE DU TRANSFERT"].dt.month.dropna().unique())]
+
+    return render_template(
+        "finances.html",
+        graph1=pio.to_html(fig1, full_html=False),
+        graph2=pio.to_html(fig2, full_html=False),
+        graph3=pio.to_html(fig3, full_html=False),
+        clients=clients, types=types, annees=annees, mois=mois,
+        selected_client=request.form.get("client"),
+        selected_type=request.form.get("type_colis"),
+        selected_annee=request.form.get("annee"),
+        selected_mois=request.form.get("mois"),
+        selected_date=request.form.get("date_specifique"),
+        ca_total=ca_total,
+        restant_total=restant_total,
+        taux_encaissemt=taux_encaissemt
+    )
+
+
 
 @app.route('/prediction')
 def prediction():
@@ -127,7 +340,8 @@ def clients():
     selected_date = request.form.get("date_specifique")
 
 
-    df_filtered = df.copy()
+    df_filtered = filter_df(df, request.form)
+
 
     # Filtres dynamiques
     if selected_client and selected_client != "Tous":
@@ -221,7 +435,8 @@ def logistique():
     selected_date = request.form.get("date_specifique")
 
 
-    df_filtered = df.copy()
+    df_filtered = filter_df(df, request.form)
+
 
     # Filtres dynamiques
     if selected_client and selected_client != "Tous":

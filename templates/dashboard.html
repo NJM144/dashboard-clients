@@ -1,48 +1,101 @@
-
 {% extends 'layout.html' %}
-
-{% block title %}Analyse Clients{% endblock %}
+{% block title %}Dashboard global{% endblock %}
 
 {% block content %}
-<!-- Ton contenu ici (KPI, Graphs) -->
- <div class="md:col-span-9 space-y-6 mr-4">
-                <!-- KPIs -->
-                <div class="grid grid-cols-1 sm:grid-cols-5 gap-4">
-                    <div class="bg-white p-4 rounded-xl shadow text-center">
-                        <p class="text-md text-yellow-500">Chiffre d'affaires</p>
-                        <p class="text-xl font-bold text-slate-600">{{ kpi_ca }} FCFA</p>
-                    </div>
-                    <div class="bg-white p-4 rounded-xl shadow text-center">
-                        <p class="text-md text-yellow-500">Volume total expédié</p>
-                        <p class="text-xl font-bold text-slate-600">{{ kpi_volume }}</p>
-                    </div>
-                    <div class="bg-white p-4 rounded-xl shadow text-center">
-                        <p class="text-md text-yellow-500">Total Livraisons</p>
-                        <p class="text-xl font-bold text-slate-600">{{ kpi_nb_livraisons }}</p>
-                    </div>
-                    <div class="bg-white p-4 rounded-xl shadow text-center">
-                        <p class="text-md text-yellow-500">Taux de paiement moyen</p>
-                        <p class="text-xl font-bold text-slate-600">{{ kpi_taux_paiement }}</p>
-                    </div>
-                    <div class="bg-white p-4 rounded-xl shadow text-center">
-                        <p class="text-md text-yellow-500">Montant total restant à payer</p>
-                        <p class="text-xl font-bold text-slate-600">{{ kpi_restant_total }} FCFA</p>
-                    </div>
-                </div>
+<!-- ===== Tabs wrapper : Alpine.js ===== -->
+<div x-data="{ tab: 'perf' }" class="space-y-6">
 
-                <!-- Graphiques -->
-                <div class="bg-white p-4 rounded-xl shadow">
-                    <h2 class="text-lg font-semibold text-center mb-2">Top 10 Clients débiteurs</h2>
-                    {{ graph1|safe }}
-                </div>
-                <div class="bg-white p-4 rounded-xl shadow">
-                    <h2 class="text-lg font-semibold text-center mb-2">Répartition des paiements</h2>
-                    {{ graph2|safe }}
-                </div>
-                <div class="bg-white p-4 rounded-xl shadow">
-                    <h2 class="text-lg font-semibold text-center mb-2">Fréquence d'expédition quotidienne</h2>
-                    {{ graph3|safe }}
-                </div>
-                
-            </div>
+  <!-- ===== Barre d’onglets ===== -->
+  <div class="flex gap-2">
+    <button
+      @click="tab = 'perf'"
+      :class="tab === 'perf' ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-700'"
+      class="px-4 py-2 rounded-lg font-semibold transition"
+    >
+      Performance
+    </button>
+    <button
+      @click="tab = 'fin'"
+      :class="tab === 'fin' ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-700'"
+      class="px-4 py-2 rounded-lg font-semibold transition"
+    >
+      Finances
+    </button>
+  </div>
+
+  <!-- ============ Onglet Performance ============ -->
+  <div x-show="tab === 'perf'" x-transition>
+    <!-- KPIs Performance -->
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+      <div class="bg-white p-4 rounded-xl shadow text-center">
+        <p class="text-md text-yellow-500">Volume total expédié</p>
+        <p class="text-xl font-bold text-slate-600">{{ perf_kpi.volume_total }}</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow text-center">
+        <p class="text-md text-yellow-500">Nombre d'expéditions</p>
+        <p class="text-xl font-bold text-slate-600">{{ perf_kpi.nb_expeditions }}</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow text-center">
+        <p class="text-md text-yellow-500">Types de colis</p>
+        <p class="text-xl font-bold text-slate-600">{{ perf_kpi.nb_types_colis }}</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow text-center">
+        <p class="text-md text-yellow-500">Type le + fréquent</p>
+        <p class="text-xl font-bold text-slate-600">{{ perf_kpi.type_plus_frequent }}</p>
+      </div>
+    </div>
+
+    <!-- Graphiques Performance -->
+    <div class="space-y-6">
+      <div class="bg-white p-4 rounded-xl shadow">
+        <h2 class="text-lg font-semibold text-center mb-2">Répartition volume par type</h2>
+        {{ perf_g1|safe }}
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow">
+        <h2 class="text-lg font-semibold text-center mb-2">Top 10 clients par volume</h2>
+        {{ perf_g2|safe }}
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow">
+        <h2 class="text-lg font-semibold text-center mb-2">Évolution quotidienne des volumes</h2>
+        {{ perf_g3|safe }}
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ Onglet Finances ============ -->
+  <div x-show="tab === 'fin'" x-transition>
+    <!-- KPIs Finances -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div class="bg-white p-4 rounded-xl shadow text-center">
+        <p class="text-md text-yellow-500">CA encaissé</p>
+        <p class="text-xl font-bold text-slate-600">{{ fin_kpi.ca_total }} FCFA</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow text-center">
+        <p class="text-md text-yellow-500">Restant à payer</p>
+        <p class="text-xl font-bold text-slate-600">{{ fin_kpi.restant_total }} FCFA</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow text-center">
+        <p class="text-md text-yellow-500">Taux d'encaissement</p>
+        <p class="text-xl font-bold text-slate-600">{{ fin_kpi.taux_encaissement }} %</p>
+      </div>
+    </div>
+
+    <!-- Graphiques Finances -->
+    <div class="space-y-6">
+      <div class="bg-white p-4 rounded-xl shadow">
+        <h2 class="text-lg font-semibold text-center mb-2">Top 10 CA</h2>
+        {{ fin_g1|safe }}
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow">
+        <h2 class="text-lg font-semibold text-center mb-2">Top 10 impayés</h2>
+        {{ fin_g2|safe }}
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow">
+        <h2 class="text-lg font-semibold text-center mb-2">CA vs impayés (mensuel)</h2>
+        {{ fin_g3|safe }}
+      </div>
+    </div>
+  </div>
+
+</div>
 {% endblock %}
