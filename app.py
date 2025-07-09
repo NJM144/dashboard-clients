@@ -320,41 +320,6 @@ def prediction():
 
 
 
-=======
-@app.route('/prediction', methods=['GET', 'POST'])
-def prediction():
-    # 1) Date saisie ou valeur par défaut (demain)
-    date_str = request.form.get("date_cible") or str((_date.today()).replace(day=_date.today().day + 1))
-    target = pd.to_datetime(date_str)
-
-    # 2) Features
-    features = pd.DataFrame([{
-        "jour_semaine": target.dayofweek,
-        "mois": target.month
-    }])
-    pred = model_pred.predict(features)[0]
-    pred_colis     = int(pred[0])
-    pred_benef     = round(pred[1], 2)
-    pred_credit    = round(pred[2], 2)
-
-    # 3) Préparation mini-graphes historiques + point prédit (facultatif)
-    import plotly.express as px, plotly.io as pio
-    df_plot = df_daily_hist.copy()
-    df_plot = df_plot.sort_values('jour')
-    future_label = target.date().isoformat()
-
-    def make_fig(col, title):
-        df_aux = df_plot[['jour', col]].copy()
-        df_aux.loc[len(df_aux)] = [future_label, pred_colis if col=='QUANTITE'
-                                                else pred_benef if col=='BENEFICE'
-                                                else pred_credit]
-        fig = px.line(df_aux, x='jour', y=col, title=title)
-        fig.update_traces(mode='lines+markers')
-        return pio.to_html(fig, full_html=False)
-
-    fig_colis  = make_fig('QUANTITE', "Historique quantité + prédiction")
-    fig_benef  = make_fig('BENEFICE', "Historique bénéfice + prédiction")
-    fig_credit = make_fig('RESTANT A PAYER', "Historique crédit + prédiction")
 
 
     return render_template(
@@ -374,10 +339,6 @@ def prediction():
 
 
 
-        graph_colis=fig_colis,
-        graph_benef=fig_benef,
-        graph_credit=fig_credit
-    )
 
 
 @app.route('/performance', methods=['GET', 'POST'])
