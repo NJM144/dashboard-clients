@@ -1,0 +1,41 @@
+{% extends 'layout.html' %}
+{% block title %}Prédiction – AMT{% endblock %}
+
+{% block content %}
+<h2 class="text-2xl font-bold mb-6">Prédiction quotidienne</h2>
+
+<form method="post" class="mb-6 flex flex-wrap gap-4 items-end">
+  <div>
+    <label class="block mb-1 font-medium">Choisir une date</label>
+    <input type="date" name="date_cible"
+           class="border rounded-lg px-3 py-2"
+           value="{{ selected_date }}">
+  </div>
+  <button class="bg-amber-600 hover:bg-amber-700 text-white font-semibold px-4 py-2 rounded-lg">
+    Générer la prédiction
+  </button>
+</form>
+
+<!-- Cartes KPI -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+  <div class="bg-white p-4 rounded-xl shadow text-center">
+    <p class="text-md text-amber-600">Colis à envoyer</p>
+    <p class="text-2xl font-bold text-slate-700">{{ pred_colis }}</p>
+  </div>
+  <div class="bg-white p-4 rounded-xl shadow text-center">
+    <p class="text-md text-amber-600">Bénéfice estimé (FCFA)</p>
+    <p class="text-2xl font-bold text-slate-700">{{ '{:,.0f}'.format(pred_benef) }}</p>
+  </div>
+  <div class="bg-white p-4 rounded-xl shadow text-center">
+    <p class="text-md text-amber-600">Crédit en attente (FCFA)</p>
+    <p class="text-2xl font-bold text-slate-700">{{ '{:,.0f}'.format(pred_credit) }}</p>
+  </div>
+</div>
+
+<!-- Graphiques -->
+<div class="space-y-8">
+  <div class="bg-white p-4 rounded-xl shadow">{{ graph_colis|safe }}</div>
+  <div class="bg-white p-4 rounded-xl shadow">{{ graph_benef|safe }}</div>
+  <div class="bg-white p-4 rounded-xl shadow">{{ graph_credit|safe }}</div>
+</div>
+{% endblock %}
