@@ -280,7 +280,7 @@ def dashboard():
 
 from flask import request, render_template
 
-<<<<<<< Updated upstream
+
 
 @app.route("/prediction", methods=["GET", "POST"])
 def prediction():
@@ -355,7 +355,7 @@ def prediction():
     fig_colis  = make_fig('QUANTITE', "Historique quantité + prédiction")
     fig_benef  = make_fig('BENEFICE', "Historique bénéfice + prédiction")
     fig_credit = make_fig('RESTANT A PAYER', "Historique crédit + prédiction")
->>>>>>> Stashed changes
+
 
     return render_template(
         "prediction.html",
@@ -363,7 +363,7 @@ def prediction():
         pred_colis=pred_colis,
         pred_benef=pred_benef,
         pred_credit=pred_credit,
-<<<<<<< Updated upstream
+
 
         graph_colis=graph_colis,
         graph_benef=graph_benef,
@@ -373,12 +373,12 @@ def prediction():
 
 
 
-=======
+
         graph_colis=fig_colis,
         graph_benef=fig_benef,
         graph_credit=fig_credit
     )
->>>>>>> Stashed changes
+
 
 @app.route('/performance', methods=['GET', 'POST'])
 def performance():
