@@ -80,7 +80,7 @@ def dashboard():
     types = ["Tous"] + sorted(df["TYPE COLIS"].dropna().unique().tolist())
     annees = ["Tous"] + sorted(df["DATE DU TRANSFERT"].dropna().dt.year.unique().astype(str))
     mois = ["Tous"] + [str(m).zfill(2) for m in sorted(df["DATE DU TRANSFERT"].dropna().dt.month.unique())]
-=======
+
 # ────────────────────────────────────────────────────────────
 #  ROUTE  /dashboard  (remplace entièrement l’ancienne)
 # ────────────────────────────────────────────────────────────
