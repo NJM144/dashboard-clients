@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Callable, Literal, TypeVar
 
 import pandas as pd
 
-from narwhals._compliant.series import EagerSeriesNamespace
+from narwhals._compliant import EagerSeriesNamespace
 from narwhals._constants import (
     MS_PER_SECOND,
     NS_PER_MICROSECOND,
@@ -25,12 +25,14 @@ from narwhals._utils import (
 from narwhals.exceptions import ShapeError
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from types import ModuleType
 
     from pandas._typing import Dtype as PandasDtype
     from pandas.core.dtypes.dtypes import BaseMaskedDtype
-    from typing_extensions import TypeIs
+    from typing_extensions import TypeAlias, TypeIs
 
+    from narwhals._duration import IntervalUnit
     from narwhals._pandas_like.expr import PandasLikeExpr
     from narwhals._pandas_like.series import PandasLikeSeries
     from narwhals._pandas_like.typing import (
@@ -95,7 +97,32 @@ PA_DURATION_RGX = r"""^
 $"""
 PATTERN_PA_DURATION = re.compile(PA_DURATION_RGX, re.VERBOSE)
 
-UNIT_DICT = {"d": "D", "m": "min"}
+NativeIntervalUnit: TypeAlias = Literal[
+    "year",
+    "quarter",
+    "month",
+    "week",
+    "day",
+    "hour",
+    "minute",
+    "second",
+    "millisecond",
+    "microsecond",
+    "nanosecond",
+]
+ALIAS_DICT = {"d": "D", "m": "min"}
+UNITS_DICT: Mapping[IntervalUnit, NativeIntervalUnit] = {
+    "y": "year",
+    "q": "quarter",
+    "mo": "month",
+    "d": "day",
+    "h": "hour",
+    "m": "minute",
+    "s": "second",
+    "ms": "millisecond",
+    "us": "microsecond",
+    "ns": "nanosecond",
+}
 
 
 def align_and_extract_native(
@@ -119,12 +146,7 @@ def align_and_extract_native(
         if rhs.native.index is not lhs_index:
             return (
                 lhs.native,
-                set_index(
-                    rhs.native,
-                    lhs_index,
-                    implementation=rhs._implementation,
-                    backend_version=rhs._backend_version,
-                ),
+                set_index(rhs.native, lhs_index, implementation=rhs._implementation),
             )
         return (lhs.native, rhs.native)
 
@@ -136,11 +158,7 @@ def align_and_extract_native(
 
 
 def set_index(
-    obj: NativeNDFrameT,
-    index: Any,
-    *,
-    implementation: Implementation,
-    backend_version: tuple[int, ...],
+    obj: NativeNDFrameT, index: Any, *, implementation: Implementation
 ) -> NativeNDFrameT:
     """Wrapper around pandas' set_axis to set object index.
 
@@ -156,7 +174,7 @@ def set_index(
         obj.index = index
         return obj
     if implementation is Implementation.PANDAS and (
-        (1, 5) <= backend_version < (3,)
+        (1, 5) <= implementation._backend_version() < (3,)
     ):  # pragma: no cover
         return obj.set_axis(index, axis=0, copy=False)
     else:  # pragma: no cover
@@ -164,15 +182,11 @@ def set_index(
 
 
 def rename(
-    obj: NativeNDFrameT,
-    *args: Any,
-    implementation: Implementation,
-    backend_version: tuple[int, ...],
-    **kwargs: Any,
+    obj: NativeNDFrameT, *args: Any, implementation: Implementation, **kwargs: Any
 ) -> NativeNDFrameT:
     """Wrapper around pandas' rename so that we can set `copy` based on implementation/version."""
     if implementation is Implementation.PANDAS and (
-        backend_version >= (3,)
+        implementation._backend_version() >= (3,)
     ):  # pragma: no cover
         return obj.rename(*args, **kwargs, inplace=False)
     return obj.rename(*args, **kwargs, copy=False, inplace=False)
@@ -376,7 +390,6 @@ def narwhals_to_native_dtype(  # noqa: C901, PLR0912, PLR0915
     dtype: IntoDType,
     dtype_backend: DTypeBackend,
     implementation: Implementation,
-    backend_version: tuple[int, ...],
     version: Version,
 ) -> str | PandasDtype:
     if dtype_backend is not None and dtype_backend not in {"pyarrow", "numpy_nullable"}:
@@ -463,6 +476,7 @@ def narwhals_to_native_dtype(  # noqa: C901, PLR0912, PLR0915
         # or at least, convert_dtypes(dtype_backend='pyarrow') doesn't
         # convert to it?
         return "category"
+    backend_version = implementation._backend_version()
     if isinstance_or_issubclass(dtype, dtypes.Datetime):
         # Pandas does not support "ms" or "us" time units before version 2.0
         if implementation is Implementation.PANDAS and backend_version < (
@@ -590,7 +604,6 @@ def calculate_timestamp_date(s: NativeSeriesT, time_unit: str) -> NativeSeriesT:
 def select_columns_by_name(
     df: NativeDataFrameT,
     column_names: list[str] | _1DArray,  # NOTE: Cannot be a tuple!
-    backend_version: tuple[int, ...],
     implementation: Implementation,
 ) -> NativeDataFrameT | Any:
     """Select columns by name.
@@ -601,7 +614,8 @@ def select_columns_by_name(
     if len(column_names) == df.shape[1] and (df.columns == column_names).all():
         return df
     if (df.columns.dtype.kind == "b") or (
-        implementation is Implementation.PANDAS and backend_version < (1, 5)
+        implementation is Implementation.PANDAS
+        and implementation._backend_version() < (1, 5)
     ):
         # See https://github.com/narwhals-dev/narwhals/issues/1349#issuecomment-2470118122
         # for why we need this
@@ -640,15 +654,4 @@ def import_array_module(implementation: Implementation, /) -> ModuleType:
         raise AssertionError(msg)
 
 
-class PandasLikeSeriesNamespace(EagerSeriesNamespace["PandasLikeSeries", Any]):
-    @property
-    def implementation(self) -> Implementation:
-        return self.compliant._implementation
-
-    @property
-    def backend_version(self) -> tuple[int, ...]:
-        return self.compliant._backend_version
-
-    @property
-    def version(self) -> Version:
-        return self.compliant._version
+class PandasLikeSeriesNamespace(EagerSeriesNamespace["PandasLikeSeries", Any]): ...

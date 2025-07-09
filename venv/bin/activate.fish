@@ -33,7 +33,7 @@ end
 # Unset irrelevant variables.
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV /home/kadi/dashboard-clients/venv
+set -gx VIRTUAL_ENV /home/khadija/projet_fatala_juillet/projetAMT_Transit/dashboard-clients/venv
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/"bin $PATH

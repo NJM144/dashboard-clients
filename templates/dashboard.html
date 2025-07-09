@@ -1,101 +1,150 @@
 {% extends 'layout.html' %}
-{% block title %}Dashboard global{% endblock %}
+{% block title %}Dashboard Global AMT Transit{% endblock %}
 
 {% block content %}
-<!-- ===== Tabs wrapper : Alpine.js ===== -->
-<div x-data="{ tab: 'perf' }" class="space-y-6">
+<!-- <div x-show="main_tab === 'perf'" x-transition>
+    <div x-data="{ tab: 'perf' }" class="space-y-6">
+        <div class="flex gap-2">
+            <button @click="tab = 'perf'" :class="tab === 'perf' ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-700'" class="px-4 py-2 rounded-lg font-semibold transition">Performance</button>
+            <button @click="tab = 'fin'" :class="tab === 'fin' ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-700'" class="px-4 py-2 rounded-lg font-semibold transition">Finances</button>
+        </div>
+        
+        <div x-show="tab === 'perf'" x-transition>
+          <h1>performance</h1>
+            </div>
 
-  <!-- ===== Barre d’onglets ===== -->
-  <div class="flex gap-2">
-    <button
-      @click="tab = 'perf'"
-      :class="tab === 'perf' ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-700'"
-      class="px-4 py-2 rounded-lg font-semibold transition"
-    >
-      Performance
-    </button>
-    <button
-      @click="tab = 'fin'"
-      :class="tab === 'fin' ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-700'"
-      class="px-4 py-2 rounded-lg font-semibold transition"
-    >
-      Finances
-    </button>
-  </div>
-
-  <!-- ============ Onglet Performance ============ -->
-  <div x-show="tab === 'perf'" x-transition>
-    <!-- KPIs Performance -->
-    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
-      <div class="bg-white p-4 rounded-xl shadow text-center">
-        <p class="text-md text-yellow-500">Volume total expédié</p>
-        <p class="text-xl font-bold text-slate-600">{{ perf_kpi.volume_total }}</p>
-      </div>
-      <div class="bg-white p-4 rounded-xl shadow text-center">
-        <p class="text-md text-yellow-500">Nombre d'expéditions</p>
-        <p class="text-xl font-bold text-slate-600">{{ perf_kpi.nb_expeditions }}</p>
-      </div>
-      <div class="bg-white p-4 rounded-xl shadow text-center">
-        <p class="text-md text-yellow-500">Types de colis</p>
-        <p class="text-xl font-bold text-slate-600">{{ perf_kpi.nb_types_colis }}</p>
-      </div>
-      <div class="bg-white p-4 rounded-xl shadow text-center">
-        <p class="text-md text-yellow-500">Type le + fréquent</p>
-        <p class="text-xl font-bold text-slate-600">{{ perf_kpi.type_plus_frequent }}</p>
-      </div>
+        <div x-show="tab === 'fin'" x-transition>
+            </div>
     </div>
-
-    <!-- Graphiques Performance -->
-    <div class="space-y-6">
-      <div class="bg-white p-4 rounded-xl shadow">
-        <h2 class="text-lg font-semibold text-center mb-2">Répartition volume par type</h2>
-        {{ perf_g1|safe }}
-      </div>
-      <div class="bg-white p-4 rounded-xl shadow">
-        <h2 class="text-lg font-semibold text-center mb-2">Top 10 clients par volume</h2>
-        {{ perf_g2|safe }}
-      </div>
-      <div class="bg-white p-4 rounded-xl shadow">
-        <h2 class="text-lg font-semibold text-center mb-2">Évolution quotidienne des volumes</h2>
-        {{ perf_g3|safe }}
-      </div>
+</div> -->
+<div x-show="main_tab === 'perf'" x-transition class="space-y-6">
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div class="bg-white p-4 rounded-xl shadow text-center">
+            <p class="text-sm text-gray-500">Nb. total de clients</p>
+            <p class="text-xl font-bold text-blue-700">{{ clients_kpi.nb_client }}</p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow text-center">
+            <p class="text-sm text-gray-500">Top 1 client (CA)</p>
+            <p class="text-lg font-bold text-green-600">{{ clients_kpi.top1_ca_nom }} ({{ "%.0f"|format(clients_kpi.top1_ca_valeur) }} F)</p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow text-center">
+            <p class="text-sm text-gray-500">Top 1 client (Livraisons)</p>
+            <p class="text-xl font-bold text-purple-600">{{ clients_kpi.top1_liv_nom }} ({{ clients_kpi.top1_liv_valeur }})</p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow text-center">
+            <p class="text-sm text-gray-500">Taux moyen d'impayé</p>
+            <p class="text-xl font-bold text-red-600">{{ clients_kpi.taux_moyen_impaye }} %</p>
+        </div>
     </div>
-  </div>
-
-  <!-- ============ Onglet Finances ============ -->
-  <div x-show="tab === 'fin'" x-transition>
-    <!-- KPIs Finances -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-      <div class="bg-white p-4 rounded-xl shadow text-center">
-        <p class="text-md text-yellow-500">CA encaissé</p>
-        <p class="text-xl font-bold text-slate-600">{{ fin_kpi.ca_total }} FCFA</p>
-      </div>
-      <div class="bg-white p-4 rounded-xl shadow text-center">
-        <p class="text-md text-yellow-500">Restant à payer</p>
-        <p class="text-xl font-bold text-slate-600">{{ fin_kpi.restant_total }} FCFA</p>
-      </div>
-      <div class="bg-white p-4 rounded-xl shadow text-center">
-        <p class="text-md text-yellow-500">Taux d'encaissement</p>
-        <p class="text-xl font-bold text-slate-600">{{ fin_kpi.taux_encaissement }} %</p>
-      </div>
+    <div class="space-y-8">
+        <div class="bg-white p-4 rounded-lg shadow">{{ clients_g1|safe }}</div>
+        <div class="bg-white p-4 rounded-lg shadow">{{ clients_g2|safe }}</div>
+        <div class="bg-white p-4 rounded-lg shadow">{{ clients_g3|safe }}</div>
     </div>
-
-    <!-- Graphiques Finances -->
-    <div class="space-y-6">
-      <div class="bg-white p-4 rounded-xl shadow">
-        <h2 class="text-lg font-semibold text-center mb-2">Top 10 CA</h2>
-        {{ fin_g1|safe }}
-      </div>
-      <div class="bg-white p-4 rounded-xl shadow">
-        <h2 class="text-lg font-semibold text-center mb-2">Top 10 impayés</h2>
-        {{ fin_g2|safe }}
-      </div>
-      <div class="bg-white p-4 rounded-xl shadow">
-        <h2 class="text-lg font-semibold text-center mb-2">CA vs impayés (mensuel)</h2>
-        {{ fin_g3|safe }}
-      </div>
-    </div>
-  </div>
-
 </div>
+
+<div x-show="main_tab === 'fin'" x-transition class="space-y-6">
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div class="bg-white p-4 rounded-xl shadow text-center">
+            <p class="text-sm text-gray-500">Nb. total de clients</p>
+            <p class="text-xl font-bold text-blue-700">{{ clients_kpi.nb_client }}</p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow text-center">
+            <p class="text-sm text-gray-500">Top 1 client (CA)</p>
+            <p class="text-lg font-bold text-green-600">{{ clients_kpi.top1_ca_nom }} ({{ "%.0f"|format(clients_kpi.top1_ca_valeur) }} F)</p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow text-center">
+            <p class="text-sm text-gray-500">Top 1 client (Livraisons)</p>
+            <p class="text-xl font-bold text-purple-600">{{ clients_kpi.top1_liv_nom }} ({{ clients_kpi.top1_liv_valeur }})</p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow text-center">
+            <p class="text-sm text-gray-500">Taux moyen d'impayé</p>
+            <p class="text-xl font-bold text-red-600">{{ clients_kpi.taux_moyen_impaye }} %</p>
+        </div>
+    </div>
+    <div class="space-y-8">
+        <div class="bg-white p-4 rounded-lg shadow">{{ clients_g1|safe }}</div>
+        <div class="bg-white p-4 rounded-lg shadow">{{ clients_g2|safe }}</div>
+        <div class="bg-white p-4 rounded-lg shadow">{{ clients_g3|safe }}</div>
+    </div>
+</div>
+
+<div x-show="main_tab === 'clients'" x-transition class="space-y-6">
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div class="bg-white p-4 rounded-xl shadow text-center">
+            <p class="text-sm text-gray-500">Nb. total de clients</p>
+            <p class="text-xl font-bold text-blue-700">{{ clients_kpi.nb_client }}</p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow text-center">
+            <p class="text-sm text-gray-500">Top 1 client (CA)</p>
+            <p class="text-lg font-bold text-green-600">{{ clients_kpi.top1_ca_nom }} ({{ "%.0f"|format(clients_kpi.top1_ca_valeur) }} F)</p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow text-center">
+            <p class="text-sm text-gray-500">Top 1 client (Livraisons)</p>
+            <p class="text-xl font-bold text-purple-600">{{ clients_kpi.top1_liv_nom }} ({{ clients_kpi.top1_liv_valeur }})</p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow text-center">
+            <p class="text-sm text-gray-500">Taux moyen d'impayé</p>
+            <p class="text-xl font-bold text-red-600">{{ clients_kpi.taux_moyen_impaye }} %</p>
+        </div>
+    </div>
+    <div class="space-y-8">
+        <div class="bg-white p-4 rounded-lg shadow">{{ clients_g1|safe }}</div>
+        <div class="bg-white p-4 rounded-lg shadow">{{ clients_g2|safe }}</div>
+        <div class="bg-white p-4 rounded-lg shadow">{{ clients_g3|safe }}</div>
+    </div>
+</div>
+
+<div x-show="main_tab === 'logistique'" x-transition class="space-y-6">
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div class="bg-white p-4 rounded-lg shadow text-center">
+            <p class="text-sm text-gray-600">Nb. total d’expéditions</p>
+            <p class="text-2xl font-bold text-blue-700">{{ logistique_kpi.nb_expeditions }}</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow text-center">
+            <p class="text-sm text-gray-600">Volume total expédié</p>
+            <p class="text-2xl font-bold text-green-700">{{ logistique_kpi.volume_total }}</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow text-center">
+            <p class="text-sm text-gray-600">Nombre de types de colis</p>
+            <p class="text-2xl font-bold text-purple-700">{{ logistique_kpi.nb_types_colis }}</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow text-center">
+            <p class="text-sm text-gray-600">Colis le plus fréquent</p>
+            <p class="text-xl font-semibold text-orange-700">{{ logistique_kpi.type_plus_frequent }}</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow text-center">
+            <p class="text-sm text-gray-600">Client avec le + de volume</p>
+            <p class="text-xl font-semibold text-red-700">{{ logistique_kpi.client_top_volume }}</p>
+        </div>
+    </div>    
+    <div class="space-y-8">
+        <div class="bg-white p-4 rounded-lg shadow">{{ logistique_g1|safe }}</div>
+        <div class="bg-white p-4 rounded-lg shadow">{{ logistique_g2|safe }}</div>
+        <div class="bg-white p-4 rounded-lg shadow">{{ logistique_g3|safe }}</div>
+    </div>
+</div>
+
+<div x-show="main_tab === 'tournees'" x-transition class="space-y-6">
+    <div class="bg-white p-4 rounded-xl shadow">
+        <h2 class="text-lg font-semibold text-center mb-2">Carte des livraisons</h2>
+        <p class="text-sm text-gray-500 text-center mb-4">Affiche toutes les livraisons correspondant aux filtres. Zoomez pour voir les détails.</p>
+        {{ tournees_map|safe }}
+    </div>
+    
+    <div class="bg-white p-4 rounded-xl shadow">
+        <h2 class="text-lg font-semibold text-center mb-2">Optimisation de la tournée</h2>
+        <p class="text-sm text-gray-500 text-center mb-4">
+            Utilisez le filtre "Date spécifique" pour calculer l'itinéraire optimisé (ordre de passage le plus court) pour un jour donné.
+        </p>
+        {{ tournees_route|safe }}
+    </div>
+</div>
+
+
+
+<div x-show="main_tab === 'alertes'" x-transition>
+    <p>Le contenu de la page Alertes & Diagnostic ira ici.</p>
+</div>
+
 {% endblock %}
