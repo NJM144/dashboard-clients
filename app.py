@@ -66,8 +66,9 @@ def dashboard():
     kpi_volume        = int(df_filtered["QUANTITE"].sum())
     kpi_nb_livraisons = len(df_filtered)
     kpi_taux_paiement = round(
-        (df_filtered['MONTANT PAYER'] / df_filtered['PRIX']).mean(skipna=True) * 100, 2
-    )
+    df_filtered["MONTANT PAYER"].sum() /
+    df_filtered["PRIX"].sum() * 100, 2
+)
     kpi_restant_total = int(df_filtered["RESTANT A PAYER"].sum())
 
     # ---------- 4. Anciens graphiques (fig1 à fig3) --------------------------
