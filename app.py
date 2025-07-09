@@ -4,6 +4,11 @@ import plotly.express as px
 import plotly.io as pio
 from datetime import datetime
 import plotly
+# imports généraux
+
+from datetime import date as _date      #  ←←  AJOUTE (ou vérifie) CETTE LIGNE
+import plotly.express as px
+import plotly.io as pio
 
 app = Flask(__name__)
 
@@ -195,8 +200,8 @@ from flask import request, render_template
 @app.route('/prediction', methods=['GET', 'POST'])
 def prediction():
     # 1) Date saisie ou valeur par défaut (demain)
-    date_str = request.form.get("date_cible") or str((_date.today()).replace(day=_date.today().day + 1))
-    target = pd.to_datetime(date_str)
+    date_str = request.form.get("date_cible") or str(_date.today() + pd.Timedelta(days=1))
+    target   = pd.to_datetime(date_str)
 
     # 2) Features
     features = pd.DataFrame([{
