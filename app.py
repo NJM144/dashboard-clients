@@ -5,7 +5,7 @@ import plotly.io as pio
 from datetime import datetime
 import plotly
 # imports généraux
-from sklearn.ensemble import RandomForestRegressor
+
 from datetime import date as _date      #  ←←  AJOUTE (ou vérifie) CETTE LIGNE
 import plotly.express as px
 import plotly.io as pio
@@ -15,19 +15,17 @@ app = Flask(__name__)
 import os
 from joblib import load
 
-# ── Chargement du modèle pré-entraîné ─────────────────────
-MODEL_PATH = os.path.join(
-    os.path.dirname(__file__),  # dossier du script
-    "models", "model_random_forest.joblib"
-)
+
+from joblib import load
+import os
+
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "model_random_forest.joblib")
 
 try:
     model_pred = load(MODEL_PATH)
-    print(f"[INFO] Modèle RandomForest chargé depuis {MODEL_PATH}")
-except FileNotFoundError:
+except Exception as e:
+    print("❌ Erreur chargement modèle :", e)
     model_pred = None
-    print(f"[ERREUR] Modèle introuvable : {MODEL_PATH} — /prediction sera indisponible")
-
 
 
 
@@ -82,44 +80,7 @@ def filter_df(df_source: pd.DataFrame, form: Dict[str, str]) -> pd.DataFrame:
 
     return df_out
 
-# ───────────────── Préparation du modèle de prédiction ────────────────────
-import os, pandas as pd
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import train_test_split
-from datetime import date as _date
 
-CSV_PATH = os.path.join(os.path.dirname(__file__), "data", "Transferts_complet.csv")
-
-def train_prediction_model(csv_path=CSV_PATH):
-    df = pd.read_csv(csv_path, sep=';')
-    df['DATE DU TRANSFERT'] = pd.to_datetime(df['DATE DU TRANSFERT'], errors='coerce')
-    df['jour'] = df['DATE DU TRANSFERT'].dt.date
-
-    daily = (df.groupby('jour')
-               .agg({'QUANTITE':'sum','MONTANT PAYER':'sum',
-                     'RESTANT A PAYER':'sum','PRIX':'sum'})
-               .reset_index())
-    daily['BENEFICE'] = daily['PRIX']
-    daily['jour_semaine'] = pd.to_datetime(daily['jour']).dt.dayofweek
-    daily['mois'] = pd.to_datetime(daily['jour']).dt.month
-
-    X = daily[['jour_semaine', 'mois']]
-    y = daily[['QUANTITE','BENEFICE','RESTANT A PAYER']]
-
-    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.25, random_state=42)
-    model = RandomForestRegressor(n_estimators=200, random_state=42)
-    model.fit(Xtr, ytr)
-
-    return model, daily
-
-# Entraînement (ou chargement) une fois pour toutes
-try:
-    model_pred, df_daily_hist = train_prediction_model()
-except FileNotFoundError:
-    # Affiche clairement dans les logs Render si le CSV est absent
-    import logging
-    logging.error(f"CSV introuvable à {CSV_PATH}. La page /prediction ne fonctionnera pas.")
-    model_pred, df_daily_hist = None, None
 
 
 # ────────────────────────────────────────────────────────────
