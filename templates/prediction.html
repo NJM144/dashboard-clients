@@ -32,5 +32,10 @@
   </div>
 </div>
 
-
+<!-- Graphiques -->
+<div class="space-y-8">
+  <div class="bg-white p-4 rounded-xl shadow">{{ graph_colis|safe }}</div>
+  <div class="bg-white p-4 rounded-xl shadow">{{ graph_benef|safe }}</div>
+  <div class="bg-white p-4 rounded-xl shadow">{{ graph_credit|safe }}</div>
+</div>
 {% endblock %}
