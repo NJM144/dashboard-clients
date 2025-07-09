@@ -16,6 +16,41 @@ DATA_PATH = "data/Transferts_classes.csv"
 df = pd.read_csv(DATA_PATH, sep=';')
 df["DATE DU TRANSFERT"] = pd.to_datetime(df["DATE DU TRANSFERT"], format="%d/%m/%Y %H:%M", errors="coerce")
 
+# ── Filtres communs ───────────────────────────────────────────────────────
+from typing import Dict
+import pandas as pd
+
+def filter_df(df_source: pd.DataFrame, form: Dict[str, str]) -> pd.DataFrame:
+    """
+    Retourne une copie filtrée de df_source selon les champs présents dans request.form.
+    Acceptés : client, type_colis ou classe_colis, annee, mois, date_specifique.
+    """
+    df_out = df_source.copy()
+
+    # Client
+    if (client := form.get("client")) and client != "Tous":
+        df_out = df_out[df_out["EXPEDITEUR"] == client]
+
+    # Type ou classe de colis
+    if (typ := form.get("type_colis") or form.get("classe_colis")) and typ != "Tous":
+        col = "TYPE COLIS" if "type_colis" in form else "CLASSE_COLIS"
+        df_out = df_out[df_out[col] == typ]
+
+    # Année
+    if (annee := form.get("annee")) and annee != "Tous":
+        df_out = df_out[df_out["DATE DU TRANSFERT"].dt.year == int(annee)]
+
+    # Mois
+    if (mois := form.get("mois")) and mois != "Tous":
+        df_out = df_out[df_out["DATE DU TRANSFERT"].dt.month == int(mois)]
+
+    # Date précise
+    if (date_str := form.get("date_specifique")):
+        date_sel = pd.to_datetime(date_str, errors="coerce")
+        df_out = df_out[df_out["DATE DU TRANSFERT"].dt.date == date_sel.date()]
+
+    return df_out
+
 
 
 # ────────────────────────────────────────────────────────────
