@@ -12,6 +12,32 @@ import plotly.io as pio
 
 app = Flask(__name__)
 
+import os
+from joblib import load
+
+# ── Chargement du modèle pré-entraîné ─────────────────────
+MODEL_PATH = os.path.join(
+    os.path.dirname(__file__),  # dossier du script
+    "models", "model_random_forest.joblib"
+)
+
+try:
+    model_pred = load(MODEL_PATH)
+    print(f"[INFO] Modèle RandomForest chargé depuis {MODEL_PATH}")
+except FileNotFoundError:
+    model_pred = None
+    print(f"[ERREUR] Modèle introuvable : {MODEL_PATH} — /prediction sera indisponible")
+
+
+
+
+
+
+
+
+
+
+
 @app.route('/')
 def home():
     return render_template('home.html')
@@ -235,40 +261,41 @@ def dashboard():
 
 from flask import request, render_template
 
-@app.route('/prediction', methods=['GET', 'POST'])
+@app.route("/prediction", methods=["GET", "POST"])
 def prediction():
-    # 1) Date saisie ou valeur par défaut (demain)
-    date_str = request.form.get("date_cible") or str(_date.today() + pd.Timedelta(days=1))
-    target   = pd.to_datetime(date_str)
+    if model_pred is None:
+        return "<h3>⚠️ Modèle indisponible. Vérifiez le fichier joblib.</h3>"
 
-    # 2) Features
+    # Date cible : saisie dans le formulaire ou demain par défaut
+    date_str = request.form.get("date_cible") \
+               or str(_date.today() + pd.Timedelta(days=1))
+    target = pd.to_datetime(date_str)
+
+    # Construction des features
     features = pd.DataFrame([{
         "jour_semaine": target.dayofweek,
-        "mois": target.month
+        "mois":         target.month
     }])
+
+    # Prédiction
     pred = model_pred.predict(features)[0]
-    pred_colis     = int(pred[0])
-    pred_benef     = round(pred[1], 2)
-    pred_credit    = round(pred[2], 2)
+    pred_colis, pred_benef, pred_credit = \
+        int(pred[0]), round(pred[1], 2), round(pred[2], 2)
 
-    # 3) Préparation mini-graphes historiques + point prédit (facultatif)
-    import plotly.express as px, plotly.io as pio
-    df_plot = df_daily_hist.copy()
-    df_plot = df_plot.sort_values('jour')
-    future_label = target.date().isoformat()
+    # Mini-graphiques historiques + point prédit
+    df_hist = df_daily_hist.sort_values("jour").copy()  # df_daily_hist vient du dashboard
+    fut_label = target.date().isoformat()
 
-    def make_fig(col, title):
-        df_aux = df_plot[['jour', col]].copy()
-        df_aux.loc[len(df_aux)] = [future_label, pred_colis if col=='QUANTITE'
-                                                else pred_benef if col=='BENEFICE'
-                                                else pred_credit]
-        fig = px.line(df_aux, x='jour', y=col, title=title)
-        fig.update_traces(mode='lines+markers')
+    def make_fig(col, title, value):
+        aux = df_hist[["jour", col]].copy()
+        aux.loc[len(aux)] = [fut_label, value]
+        fig = px.line(aux, x="jour", y=col, title=title)
+        fig.update_traces(mode="lines+markers")
         return pio.to_html(fig, full_html=False)
 
-    fig_colis  = make_fig('QUANTITE', "Historique quantité + prédiction")
-    fig_benef  = make_fig('BENEFICE', "Historique bénéfice + prédiction")
-    fig_credit = make_fig('RESTANT A PAYER', "Historique crédit + prédiction")
+    graph_colis  = make_fig("QUANTITE",        "Historique quantité + prédiction", pred_colis)
+    graph_benef  = make_fig("BENEFICE",        "Historique bénéfice + prédiction", pred_benef)
+    graph_credit = make_fig("RESTANT A PAYER", "Historique crédit + prédiction",   pred_credit)
 
     return render_template(
         "prediction.html",
@@ -276,10 +303,11 @@ def prediction():
         pred_colis=pred_colis,
         pred_benef=pred_benef,
         pred_credit=pred_credit,
-        graph_colis=fig_colis,
-        graph_benef=fig_benef,
-        graph_credit=fig_credit
+        graph_colis=graph_colis,
+        graph_benef=graph_benef,
+        graph_credit=graph_credit
     )
+
 
 @app.route('/performance', methods=['GET', 'POST'])
 def performance():
