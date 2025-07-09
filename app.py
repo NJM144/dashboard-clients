@@ -353,9 +353,7 @@ def finances():
                            kpi_restant_total=kpi_restant_total
                            ) # Mets tes variables ici
 
-@app.route('/prediction')
-def prediction():
-    return "<h2>Page de prédiction à venir...</h2>"  # à remplacer plus tard
+
 
 
 
