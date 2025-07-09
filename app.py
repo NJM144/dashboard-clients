@@ -74,7 +74,7 @@ def dashboard():
 
     
 
-<<<<<<< Updated upstream
+
     # Valeurs des menus déroulants
     clients = ["Tous"] + sorted(df["EXPEDITEUR"].dropna().unique().tolist())
     types = ["Tous"] + sorted(df["TYPE COLIS"].dropna().unique().tolist())
@@ -394,7 +394,7 @@ def finances():
         restant_total=restant_total,
         taux_encaissemt=taux_encaissemt
     )
->>>>>>> Stashed changes
+
 
     return render_template("dashboard.html",graph1=pio.to_html(fig1, full_html=False),
                            graph2=pio.to_html(fig2, full_html=False),
