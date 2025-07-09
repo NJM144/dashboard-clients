@@ -5,7 +5,7 @@ import plotly.io as pio
 from datetime import datetime
 import plotly
 # imports généraux
-
+from sklearn.ensemble import RandomForestRegressor
 from datetime import date as _date      #  ←←  AJOUTE (ou vérifie) CETTE LIGNE
 import plotly.express as px
 import plotly.io as pio
