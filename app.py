@@ -33,6 +33,35 @@ except Exception as e:
 
 
 
+# ── Charge et entraîne une seule fois ────────────────────────────────────
+import pandas as pd
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
+from datetime import date as _date
+
+def train_prediction_model(csv_path="data/Transferts_complet.csv"):
+    df = pd.read_csv(csv_path, sep=';')
+    df['DATE DU TRANSFERT'] = pd.to_datetime(df['DATE DU TRANSFERT'], errors='coerce')
+    df['jour'] = df['DATE DU TRANSFERT'].dt.date
+
+    daily = (df.groupby('jour')
+               .agg({'QUANTITE':'sum','MONTANT PAYER':'sum',
+                     'RESTANT A PAYER':'sum','PRIX':'sum'})
+               .reset_index())
+    daily['BENEFICE'] = daily['PRIX']
+    daily['jour_semaine'] = pd.to_datetime(daily['jour']).dt.dayofweek
+    daily['mois'] = pd.to_datetime(daily['jour']).dt.month
+
+    X = daily[['jour_semaine', 'mois']]
+    y = daily[['QUANTITE','BENEFICE','RESTANT A PAYER']]
+
+    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.25, random_state=42)
+    model = RandomForestRegressor(n_estimators=200, random_state=42)
+    model.fit(Xtr, ytr)
+
+    return model, daily  # on renvoie aussi l'historique pour les graphiques
+
+model_pred, df_daily_hist = train_prediction_model()
 
 
 
@@ -222,6 +251,7 @@ def dashboard():
 
 from flask import request, render_template
 
+<<<<<<< Updated upstream
 @app.route("/prediction", methods=["GET", "POST"])
 def prediction():
     if model_pred is None:
@@ -257,6 +287,42 @@ def prediction():
     graph_colis  = make_fig("QUANTITE",        "Historique quantité + prédiction", pred_colis)
     graph_benef  = make_fig("BENEFICE",        "Historique bénéfice + prédiction", pred_benef)
     graph_credit = make_fig("RESTANT A PAYER", "Historique crédit + prédiction",   pred_credit)
+=======
+@app.route('/prediction', methods=['GET', 'POST'])
+def prediction():
+    # 1) Date saisie ou valeur par défaut (demain)
+    date_str = request.form.get("date_cible") or str((_date.today()).replace(day=_date.today().day + 1))
+    target = pd.to_datetime(date_str)
+
+    # 2) Features
+    features = pd.DataFrame([{
+        "jour_semaine": target.dayofweek,
+        "mois": target.month
+    }])
+    pred = model_pred.predict(features)[0]
+    pred_colis     = int(pred[0])
+    pred_benef     = round(pred[1], 2)
+    pred_credit    = round(pred[2], 2)
+
+    # 3) Préparation mini-graphes historiques + point prédit (facultatif)
+    import plotly.express as px, plotly.io as pio
+    df_plot = df_daily_hist.copy()
+    df_plot = df_plot.sort_values('jour')
+    future_label = target.date().isoformat()
+
+    def make_fig(col, title):
+        df_aux = df_plot[['jour', col]].copy()
+        df_aux.loc[len(df_aux)] = [future_label, pred_colis if col=='QUANTITE'
+                                                else pred_benef if col=='BENEFICE'
+                                                else pred_credit]
+        fig = px.line(df_aux, x='jour', y=col, title=title)
+        fig.update_traces(mode='lines+markers')
+        return pio.to_html(fig, full_html=False)
+
+    fig_colis  = make_fig('QUANTITE', "Historique quantité + prédiction")
+    fig_benef  = make_fig('BENEFICE', "Historique bénéfice + prédiction")
+    fig_credit = make_fig('RESTANT A PAYER', "Historique crédit + prédiction")
+>>>>>>> Stashed changes
 
     return render_template(
         "prediction.html",
@@ -264,11 +330,18 @@ def prediction():
         pred_colis=pred_colis,
         pred_benef=pred_benef,
         pred_credit=pred_credit,
+<<<<<<< Updated upstream
         graph_colis=graph_colis,
         graph_benef=graph_benef,
         graph_credit=graph_credit
     )
 
+=======
+        graph_colis=fig_colis,
+        graph_benef=fig_benef,
+        graph_credit=fig_credit
+    )
+>>>>>>> Stashed changes
 
 @app.route('/performance', methods=['GET', 'POST'])
 def performance():
