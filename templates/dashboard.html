@@ -49,7 +49,7 @@
         <div class="bg-white p-4 rounded-lg shadow">{{ perf_g2|safe }}</div>
         <div class="bg-white p-4 rounded-lg shadow">{{ perf_g3|safe }}</div>
         <!-- <div class="bg-white p-4 rounded-lg shadow">{{ perf_heatmap|safe }}</div> -->
-        <div class="bg-white p-4 rounded-xl shadow mt-6 overflow-x-auto max-h-[80vh]">
+        <div class="bg-white p-4 rounded-xl shadow mt-6 overflow-x-auto">
             <h2 class="text-lg font-semibold text-center mb-2">Taux de croissance mensuelle</h2>
             {{ growth_table|safe }}
         </div>
@@ -83,7 +83,7 @@
 
     <!-- 2 KPI verticaux -->
     <div class="space-y-4">
-        <div class="bg-white p-4 rounded-xl shadow text-center">
+        <!-- <div class="bg-white p-4 rounded-xl shadow text-center">
         <p class="text-md text-yellow-500">Client top CA</p>
         <p class="text-xl font-bold text-slate-600">{{ fin_kpi.top_client_ca }}</p>
         </div>
@@ -91,6 +91,10 @@
         <p class="text-md text-yellow-500">Client top impayés</p>
         <p class="text-xl font-bold text-slate-600">{{ fin_kpi.top_client_impaye }}</p>
         </div>
+        <div class="bg-white p-4 rounded-xl shadow text-center">
+        <p class="text-md text-yellow-500">Taux impayés moyen</p>
+        <p class="text-xl font-bold text-slate-600">{{ fin_kpi.taux_impaye_moyen }}</p>
+        </div> -->
     </div>
     </div>
 
@@ -114,7 +118,7 @@
 <div x-show="main_tab === 'clients'" x-transition class="space-y-6">
     <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div class="bg-white p-4 rounded-xl shadow text-center">
-            <p class="text-sm text-gray-500">Nb. total de clients</p>
+            <p class="text-sm text-gray-500">Nombre total de clients</p>
             <p class="text-xl font-bold text-blue-700">{{ clients_kpi.nb_client }}</p>
         </div>
         <div class="bg-white p-4 rounded-xl shadow text-center">
@@ -188,5 +192,14 @@
 <div x-show="main_tab === 'alertes'" x-transition>
     <p>Le contenu de la page Alertes & Diagnostic ira ici.</p>
 </div>
+
+<style>
+table thead th, table tbody td {
+    padding: 0.75rem; /* espace dans les cellules */
+    text-align: center; /* alignement horizontal */
+    vertical-align: middle; /* alignement vertical */
+    white-space: nowrap; /* évite les sauts de ligne dans les colonnes */
+}
+</style>
 
 {% endblock %}

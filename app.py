@@ -1,248 +1,107 @@
-# app.py
 
-# ... (garder tous les imports et le chargement des données au début)
-from flask import Flask, render_template, request, jsonify
+
+# ===================================================================
+# 1. IMPORTS ET CONFIGURATION
+# ===================================================================
+import os
+from datetime import date as _date
+from typing import Dict
+
 import pandas as pd
 import plotly.express as px
 import plotly.io as pio
-from datetime import datetime
-import plotly
-# imports généraux
-
-from datetime import date as _date      #  ←←  AJOUTE (ou vérifie) CETTE LIGNE
-import plotly.express as px
-import plotly.io as pio
-from flask import request, render_template
+from flask import Flask, render_template, request, jsonify
+from flask_caching import Cache  # 👈 CORRECTION: Import manquant
+from joblib import load
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
 
 app = Flask(__name__)
-app.debug = True
 
-import os
-from joblib import load
+# Configuration du cache
+config = {
+    "DEBUG": True,
+    "CACHE_TYPE": "SimpleCache",
+    "CACHE_DEFAULT_TIMEOUT": 300  # 5 minutes
+}
+app.config.from_mapping(config)
+cache = Cache(app)
 
-
-from joblib import load
-import os
-
-MODEL_PATH = os.path.join(os.path.dirname(__file__),"model",  "model_random_forest.joblib")
-
+# ===================================================================
+# 2. CHARGEMENT DES DONNÉES ET MODÈLES (une seule fois au démarrage)
+# ===================================================================
+# --- Chargement des DataFrames ---
 try:
-    model_pred = load(MODEL_PATH)
-except Exception as e:
-    print("❌ Erreur chargement modèle :", e)
-    model_pred = None
+    df = pd.read_csv("data/Transferts_classes.csv", sep=';')
+    df["DATE DU TRANSFERT"] = pd.to_datetime(df["DATE DU TRANSFERT"], format="%d/%m/%Y %H:%M", errors="coerce")
+    df_geo = pd.read_csv("data/ListeTransfert_geocode (2).csv", sep=';')
+    df_geo["DATE DU TRANSFERT"] = pd.to_datetime(df_geo["DATE DU TRANSFERT"], format="%d/%m/%Y %H:%M", errors="coerce")
+except FileNotFoundError as e:
+    print(f"❌ Erreur: Fichier de données non trouvé. {e}")
+    df, df_geo = pd.DataFrame(), pd.DataFrame()
 
-
-# ── Charge et entraîne une seule fois ────────────────────────────────────
-import pandas as pd
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import train_test_split
-from datetime import date as _date
-
+# --- Entraînement/Chargement du modèle de prédiction ---
+# NOTE: J'ai supprimé la définition de fonction dupliquée
 def train_prediction_model(csv_path="data/Transferts_complet.csv"):
-    df = pd.read_csv(csv_path, sep=';')
-    df['DATE DU TRANSFERT'] = pd.to_datetime(df['DATE DU TRANSFERT'], errors='coerce')
-    df['jour'] = df['DATE DU TRANSFERT'].dt.date
-
-    daily = (df.groupby('jour')
-               .agg({'QUANTITE':'sum','MONTANT PAYER':'sum',
-                     'RESTANT A PAYER':'sum','PRIX':'sum'})
+    # ... (le corps de ta fonction reste le même)
+    df_model = pd.read_csv(csv_path, sep=';')
+    df_model['DATE DU TRANSFERT'] = pd.to_datetime(df_model['DATE DU TRANSFERT'], errors='coerce')
+    df_model['jour'] = df_model['DATE DU TRANSFERT'].dt.date
+    daily = (df_model.groupby('jour')
+               .agg({'QUANTITE':'sum','MONTANT PAYER':'sum', 'RESTANT A PAYER':'sum','PRIX':'sum'})
                .reset_index())
     daily['BENEFICE'] = daily['PRIX']
     daily['jour_semaine'] = pd.to_datetime(daily['jour']).dt.dayofweek
     daily['mois'] = pd.to_datetime(daily['jour']).dt.month
-
     X = daily[['jour_semaine', 'mois']]
     y = daily[['QUANTITE','BENEFICE','RESTANT A PAYER']]
-
     Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.25, random_state=42)
     model = RandomForestRegressor(n_estimators=200, random_state=42)
     model.fit(Xtr, ytr)
-
-    return model, daily  # on renvoie aussi l'historique pour les graphiques
+    return model, daily
 
 model_pred, df_daily_hist = train_prediction_model()
 
 
-
-
-
-# ── Charge et entraîne une seule fois ────────────────────────────────────
-import pandas as pd
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import train_test_split
-from datetime import date as _date
-
-def train_prediction_model(csv_path="data/Transferts_complet.csv"):
-    df = pd.read_csv(csv_path, sep=';')
-    df['DATE DU TRANSFERT'] = pd.to_datetime(df['DATE DU TRANSFERT'], errors='coerce')
-    df['jour'] = df['DATE DU TRANSFERT'].dt.date
-
-    daily = (df.groupby('jour')
-               .agg({'QUANTITE':'sum','MONTANT PAYER':'sum',
-                     'RESTANT A PAYER':'sum','PRIX':'sum'})
-               .reset_index())
-    daily['BENEFICE'] = daily['PRIX']
-    daily['jour_semaine'] = pd.to_datetime(daily['jour']).dt.dayofweek
-    daily['mois'] = pd.to_datetime(daily['jour']).dt.month
-
-    X = daily[['jour_semaine', 'mois']]
-    y = daily[['QUANTITE','BENEFICE','RESTANT A PAYER']]
-
-    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.25, random_state=42)
-    model = RandomForestRegressor(n_estimators=200, random_state=42)
-    model.fit(Xtr, ytr)
-
-    return model, daily  # on renvoie aussi l'historique pour les graphiques
-
-model_pred, df_daily_hist = train_prediction_model()
-
-
-
-@app.route('/')
-def home():
-    return render_template('home.html')
-
-# Charger les données
-DATA_PATH = "data/Transferts_classes.csv"
-df = pd.read_csv(DATA_PATH, sep=';')
-df["DATE DU TRANSFERT"] = pd.to_datetime(df["DATE DU TRANSFERT"], format="%d/%m/%Y %H:%M", errors="coerce")
-
-
-# Charger les données
-DATA_map = "data/ListeTransfert_geocode (2).csv"
-df_geo = pd.read_csv(DATA_map, sep=';')
-df_geo["DATE DU TRANSFERT"] = pd.to_datetime(df_geo["DATE DU TRANSFERT"], format="%d/%m/%Y %H:%M", errors="coerce")
-
-# ── Filtres communs ───────────────────────────────────────────────────────
-from typing import Dict
-import pandas as pd
-
+# ===================================================================
+# 3. FONCTIONS UTILITAIRES (comme le filtrage)
+# ===================================================================
 def filter_df(df_source: pd.DataFrame, form: Dict[str, str]) -> pd.DataFrame:
-    """
-    Retourne une copie filtrée de df_source selon les champs présents dans request.form.
-    Acceptés : client, type_colis ou classe_colis, annee, mois, date_specifique.
-    """
+    # ... (ta fonction filter_df reste inchangée)
     df_out = df_source.copy()
-
-    # Client
     if (client := form.get("client")) and client != "Tous":
         df_out = df_out[df_out["EXPEDITEUR"] == client]
-
-    # Type ou classe de colis
     if (typ := form.get("type_colis") or form.get("classe_colis")) and typ != "Tous":
         col = "TYPE COLIS" if "type_colis" in form else "CLASSE_COLIS"
         df_out = df_out[df_out[col] == typ]
-
-    # Année
     if (annee := form.get("annee")) and annee != "Tous":
         df_out = df_out[df_out["DATE DU TRANSFERT"].dt.year == int(annee)]
-
-    # Mois
     if (mois := form.get("mois")) and mois != "Tous":
         df_out = df_out[df_out["DATE DU TRANSFERT"].dt.month == int(mois)]
-
-    # Date précise
     if (date_str := form.get("date_specifique")):
         date_sel = pd.to_datetime(date_str, errors="coerce")
         df_out = df_out[df_out["DATE DU TRANSFERT"].dt.date == date_sel.date()]
-
-     # Plage de dates
     if (date_debut := form.get("date_debut")) and (date_fin := form.get("date_fin")):
         try:
             debut = pd.to_datetime(date_debut)
             fin = pd.to_datetime(date_fin)
             df_out = df_out[(df_out["DATE DU TRANSFERT"] >= debut) & (df_out["DATE DU TRANSFERT"] <= fin)]
         except Exception as e:
-            print("❌ Erreur de plage de dates :", e)
-
+            print(f"❌ Erreur de plage de dates : {e}")
     return df_out
 
+# ===================================================================
+# 4. FONCTIONS DE GÉNÉRATION DE DONNÉES (CACHÉES)
+# ===================================================================
+# Le décorateur @cache.memoize() fait la magie : il stocke le résultat
+# de la fonction pour un jeu d'arguments donné.
 
-@app.route("/prediction", methods=["GET", "POST"])
-def prediction():
-    if model_pred is None:
-        return "<h3>⚠️ Modèle indisponible. Vérifiez le fichier joblib.</h3>"
-
-    # Date cible : saisie dans le formulaire ou demain par défaut
-    date_str = request.form.get("date_cible") \
-               or str(_date.today() + pd.Timedelta(days=1))
-    target = pd.to_datetime(date_str)
-
-    # Construction des features
-    features = pd.DataFrame([{
-        "jour_semaine": target.dayofweek,
-        "mois":         target.month
-    }])
-
-    # Prédiction
-    pred = model_pred.predict(features)[0]
-    pred_colis, pred_benef, pred_credit = \
-        int(pred[0]), round(pred[1], 2), round(pred[2], 2)
-
-    # Mini-graphiques historiques + point prédit
-    df_hist = df_daily_hist.sort_values("jour").copy()  # df_daily_hist vient du dashboard
-    fut_label = target.date().isoformat()
-
-    def make_fig(col, title, value):
-        aux = df_hist[["jour", col]].copy()
-        aux.loc[len(aux)] = [fut_label, value]
-        fig = px.line(aux, x="jour", y=col, title=title)
-        fig.update_traces(mode="lines+markers")
-        return pio.to_html(fig, full_html=False)
-
-    graph_colis  = make_fig("QUANTITE",        "Historique quantité + prédiction", pred_colis)
-    graph_benef  = make_fig("BENEFICE",        "Historique bénéfice + prédiction", pred_benef)
-    graph_credit = make_fig("RESTANT A PAYER", "Historique crédit + prédiction",   pred_credit)
-
-
-
-
-
-    return render_template(
-        "prediction.html",
-        selected_date=date_str,
-        pred_colis=pred_colis,
-        pred_benef=pred_benef,
-        pred_credit=pred_credit,
-
-
-        graph_colis=graph_colis,
-        graph_benef=graph_benef,
-        graph_credit=graph_credit
-    )
-
-
-# ────────────────────────────────────────────────────────────
-#  ROUTE PRINCIPALE /dashboard (fusionne tout)
-# ────────────────────────────────────────────────────────────
-@app.route('/dashboard', methods=['GET', 'POST'])
-def dashboard():
-
-    # ---------- 1. Récupération des filtres ---------------------------------
-    selected_client   = request.form.get("client")
-    selected_type     = request.form.get("type_colis")       # ou classe_colis selon ton HTML
-    selected_annee    = request.form.get("annee")
-    selected_mois     = request.form.get("mois")
-    selected_date     = request.form.get("date_specifique")
-    selected_date_debut = request.form.get("date_debut", "")
-    selected_date_fin = request.form.get("date_fin", "")
-    # ---------- 1. Filtres (inchangé) --------------------------------------
-    df_filtered = filter_df(df, request.form)
+@cache.memoize()
+def generate_performance_data(filters_tuple):
+    filters_dict = dict(filters_tuple)
+    df_filtered = filter_df(df, filters_dict)
     col_class = 'CLASSE_COLIS' if 'CLASSE_COLIS' in df_filtered.columns else 'TYPE COLIS'
-
-   
-    # ---------- 2. Variables pour les filtres (inchangé) -------------------
-    clients = ["Tous"] + sorted(df["EXPEDITEUR"].dropna().unique())
-    types   = ["Tous"] + sorted(df[col_class].dropna().unique())
-    annees  = ["Tous"] + sorted(df["DATE DU TRANSFERT"].dt.year.dropna().unique().astype(str))
-    mois    = ["Tous"] + [str(m).zfill(2) for m in sorted(df["DATE DU TRANSFERT"].dt.month.dropna().unique())]
-    
-    
-       
-    # =======================================================================
-    # SECTION 1 : PERFORMANCE (déjà présent, juste pour le contexte)
-    # =======================================================================
+    # ... (Copie ici toute la logique de calcul des KPIs et graphiques de PERFORMANCE)
 
      # Taux de croissance sur le dernier mois
     df_monthly = df.groupby(df["DATE DU TRANSFERT"].dt.to_period("M"))["QUANTITE"].sum().reset_index()
@@ -296,9 +155,7 @@ def dashboard():
     fig_perf3 = px.line(df_temps, x='DATE', y='QUANTITE',
                    title="Évolution quotidienne des volumes")
     
-    # 4. heatmap heure/Jour
-    #heatmap_html = pio.to_html(fig_heatmap, full_html=False)
-
+    
     # 4. Tableau taux de croissance mensuelle
         # Construire df_monthly depuis df_filtered (ou df principal filtré)
     df_filtered["mois"] = df_filtered["DATE DU TRANSFERT"].dt.to_period("M")
@@ -329,12 +186,28 @@ def dashboard():
         classes="table-auto w-full text-md text-center text-gray-700",
         border=0
     )
+    return {
+        "perf_kpi": perf_kpi,
+        "perf_g1": pio.to_html(fig_perf1, full_html=False),
+        "perf_g2" :pio.to_html(fig_perf2, full_html=False),
+        "perf_g3" :pio.to_html(fig_perf3, full_html=False),
+        
+        #perf_heatmap=heatmap_html,
+        "growth_table":growth_table_html,
+
+        }
 
 
-    
-    # =======================================================================
+# =======================================================================
     # SECTION 2 : FINANCES 
-    # =======================================================================
+# =======================================================================
+
+@cache.memoize()
+def generate_finance_data(filters_tuple):
+    filters_dict = dict(filters_tuple)
+    df_filtered = filter_df(df, filters_dict)
+    col_class = 'CLASSE_COLIS' if 'CLASSE_COLIS' in df_filtered.columns else 'TYPE COLIS'
+    # ... (Copie ici toute la logique de calcul des KPIs et graphiques de PERFORMANCE)
 
         # Taux d'encaissement global
     total_prix = df_filtered["PRIX"].sum()
@@ -393,10 +266,27 @@ def dashboard():
     df_mensuel = df_filtered.groupby("mois")[["MONTANT PAYER", "RESTANT A PAYER"]].sum().reset_index()
     df_mensuel["mois"] = df_mensuel["mois"].astype(str)
     fig_fin4 = px.bar(df_mensuel, x="mois", y=["MONTANT PAYER", "RESTANT A PAYER"], barmode="group", title="CA vs impayés (mensuel)")
+    return{
+        "fin_kpi":fin_kpi,
+        "fin_g1":pio.to_html(fig_fin1, full_html=False),
+        "fin_g2":pio.to_html(fig_fin2, full_html=False),
+        "fin_g3":pio.to_html(fig_fin3, full_html=False),
+        "fin_g4":pio.to_html(fig_fin4, full_html=False),
 
-    # =======================================================================
+    }
+    
+# Fais de même pour les autres sections : clients, logistique, tournees...
+# =======================================================================
     # SECTION 3 : ANALYSE CLIENTS (fusion de la logique de /clients)
-    # =======================================================================
+# =======================================================================
+
+    
+@cache.memoize()
+def generate_clients_data(filters_tuple):
+    filters_dict = dict(filters_tuple)
+    df_filtered = filter_df(df, filters_dict)
+    col_class = 'CLASSE_COLIS' if 'CLASSE_COLIS' in df_filtered.columns else 'TYPE COLIS'
+    # ... (Copie ici toute la logique de calcul des KPIs et graphiques de PERFORMANCE)
     # --- KPIs Clients ---
     ca_par_client = df_filtered.groupby('EXPEDITEUR')['MONTANT PAYER'].sum().reset_index()
     livraisons_par_client = df_filtered['EXPEDITEUR'].value_counts().reset_index()
@@ -422,12 +312,24 @@ def dashboard():
 
     top10_livraisons = livraisons_par_client.head(10)
     clients_g2 = px.bar(top10_livraisons, x='Client', y='Nb Livraisons', title="Top 10 Clients par Nombre de Livraisons")
-    
     clients_g3 = px.pie(top10_ca, names='EXPEDITEUR', values='MONTANT PAYER', title="Répartition du CA (Top 10)", hole=0.4)
+    return {
+        "clients_kpi":clients_kpi,
+        "clients_g1":pio.to_html(clients_g1, full_html=False),
+        "clients_g2":pio.to_html(clients_g2, full_html=False),
+        "clients_g3":pio.to_html(clients_g3, full_html=False),
 
-    # =======================================================================
+    }
+# =======================================================================
     # SECTION 4 : LOGISTIQUE & STOCK (fusion de la logique de /logistique)
-    # =======================================================================
+# =======================================================================
+    
+@cache.memoize()
+def generate_logistique_data(filters_tuple):
+    filters_dict = dict(filters_tuple)
+    df_filtered = filter_df(df, filters_dict)
+    col_class = 'CLASSE_COLIS' if 'CLASSE_COLIS' in df_filtered.columns else 'TYPE COLIS'
+    
     # --- KPIs Logistique ---
     logistique_kpi = {
         'nb_expeditions': len(df_filtered),
@@ -444,14 +346,26 @@ def dashboard():
     df_volume_clients = df_filtered.groupby('EXPEDITEUR')['QUANTITE'].sum().nlargest(10).reset_index()
     logistique_g2 = px.bar(df_volume_clients, x='EXPEDITEUR', y='QUANTITE', title="Top 10 Clients par Volume Expédié")
     
-    df_volume_mensuel = df_filtered.set_index('DATE DU TRANSFERT').resample('M')['QUANTITE'].sum().reset_index()
+    df_volume_mensuel = df_filtered.set_index('DATE DU TRANSFERT').resample('ME')['QUANTITE'].sum().reset_index()
     df_volume_mensuel['Mois'] = df_volume_mensuel['DATE DU TRANSFERT'].dt.strftime('%Y-%m')
     logistique_g3 = px.line(df_volume_mensuel, x='Mois', y='QUANTITE', title="Évolution Mensuelle des Volumes Expédiés")
+    return{
+        "logistique_kpi":logistique_kpi,
+        "logistique_g1":pio.to_html(logistique_g1, full_html=False),
+        "logistique_g2":pio.to_html(logistique_g2, full_html=False),
+        "logistique_g3":pio.to_html(logistique_g3, full_html=False),
+        
+    }
 
-    # ... (Tu peux ajouter ici la logique pour 'Tournées' et 'Alertes' de la même manière)
-     # =======================================================================
+# =======================================================================
     # SECTION 5 : OPTIMISATION DES TOURNEES
-    # =======================================================================
+# =======================================================================
+@cache.memoize()
+def generate_tournees_data(filters_tuple):
+    filters_dict = dict(filters_tuple)
+    df_filtered = filter_df(df, filters_dict)
+    col_class = 'CLASSE_COLIS' if 'CLASSE_COLIS' in df_filtered.columns else 'TYPE COLIS'
+    
     # --- Carte de toutes les livraisons (selon les filtres) ---
     df_map_filtered = filter_df(df_geo, request.form) # On utilise le df géocodé
     df_map_filtered = df_map_filtered.dropna(subset=['lat', 'lon'])
@@ -532,58 +446,121 @@ def dashboard():
             tournees_route = pio.to_html(fig_route, full_html=False)
         else:
             tournees_route = f"<p class='text-center text-gray-500 mt-8'>Aucune donnée géolocalisée trouvée pour {date_title}.</p>"
+    return{
+        "tournees_map":tournees_map,
+        "tournees_route":tournees_route
+    }
 
 
-    # ---------- Envoi de TOUTES les données au template ---------------------
+
+# ===================================================================
+# 5. ROUTES FLASK
+
+# ===================================================================
+@app.route('/')
+def home():
+    return render_template('home.html')
+
+@app.route('/dashboard', methods=['GET', 'POST'])
+def dashboard():
+    """
+    Cette route est maintenant beaucoup plus simple. Son rôle est de:
+    1. Récupérer les listes pour les menus déroulants des filtres.
+    2. Appeler les fonctions cachées pour obtenir les données.
+    3. Envoyer le tout au template.
+    """
+    # Créer un tuple des filtres pour le passer aux fonctions cachées
+    filters_for_cache = tuple(request.form.items())
+    
+    # Appeler les fonctions qui vont soit calculer, soit récupérer depuis le cache
+    performance_data = generate_performance_data(filters_for_cache)
+    finance_data = generate_finance_data(filters_for_cache)
+    clients_data = generate_clients_data(filters_for_cache)
+    logistique_data = generate_logistique_data(filters_for_cache)
+    tournees_data = generate_tournees_data(filters_for_cache)
+
+    # Récupérer les listes pour les menus déroulants (peut aussi être mis en cache !)
+    col_class = 'CLASSE_COLIS' if 'CLASSE_COLIS' in df.columns else 'TYPE COLIS'
+    clients = ["Tous"] + sorted(df["EXPEDITEUR"].dropna().unique())
+    types   = ["Tous"] + sorted(df[col_class].dropna().unique())
+    annees  = ["Tous"] + sorted(df["DATE DU TRANSFERT"].dt.year.dropna().unique().astype(str))
+    mois    = ["Tous"] + [str(m).zfill(2) for m in sorted(df["DATE DU TRANSFERT"].dt.month.dropna().unique())]
+    
     return render_template(
         "dashboard.html",
-        # Variables des filtres
+        # Listes pour les filtres
         clients=clients, types=types, annees=annees, mois=mois,
-        selected_client     = selected_client,
-        selected_type       = selected_type,
-        selected_annee      = selected_annee,
-        selected_mois       = selected_mois,
-        selected_date       = selected_date,
-
-        # Finance 
-        fin_kpi=fin_kpi,
-        fin_g1=pio.to_html(fig_fin1, full_html=False),
-        fin_g2=pio.to_html(fig_fin2, full_html=False),
-        fin_g3=pio.to_html(fig_fin3, full_html=False),
-        fin_g4=pio.to_html(fig_fin4, full_html=False),
-
         
-        # ➜ NOUVEAU : Données pour l'onglet Clients
-        clients_kpi=clients_kpi,
-        clients_g1=pio.to_html(clients_g1, full_html=False),
-        clients_g2=pio.to_html(clients_g2, full_html=False),
-        clients_g3=pio.to_html(clients_g3, full_html=False),
-
-        # ➜ NOUVEAU : Données pour l'onglet Logistique
-        logistique_kpi=logistique_kpi,
-        logistique_g1=pio.to_html(logistique_g1, full_html=False),
-        logistique_g2=pio.to_html(logistique_g2, full_html=False),
-        logistique_g3=pio.to_html(logistique_g3, full_html=False),
+        # Valeurs sélectionnées pour les filtres
+        selected_client=request.form.get("client", "Tous"),
+        selected_type=request.form.get("type_colis", "Tous"),
+        selected_annee=request.form.get("annee", "Tous"),
+        selected_mois=request.form.get("mois", "Tous"),
+        selected_date=request.form.get("date_specifique", ""),
+        selected_date_debut=request.form.get("date_debut", ""),
+        selected_date_fin=request.form.get("date_fin", ""),
         
-        # ... (n'oublie pas de passer aussi les variables perf et fin !)
-        # --- variables pour les ONGLETs ---
-        perf_kpi = perf_kpi,
-        
-        perf_g1  = pio.to_html(fig_perf1, full_html=False),
-        perf_g2  = pio.to_html(fig_perf2, full_html=False),
-        perf_g3  = pio.to_html(fig_perf3, full_html=False),
-        
-        #perf_heatmap=heatmap_html,
-        growth_table=growth_table_html,
-
-
-
-        # ➜ NOUVEAU : Données pour l'onglet Tournées
-        tournees_map=tournees_map,
-        tournees_route=tournees_route
+        # Données des onglets (on utilise ** pour "déballer" les dictionnaires)
+        **performance_data,
+        **finance_data,
+        **clients_data,
+        **logistique_data,
+        **tournees_data
     )
+    
+# La route /prediction reste inchangée
+@app.route("/prediction", methods=["GET", "POST"])
+def prediction():
+    if model_pred is None:
+        return "<h3>⚠️ Modèle indisponible. Vérifiez le fichier joblib.</h3>"
 
-# Les routes /clients, /logistique, /tournees, etc. ne sont plus nécessaires. Tu peux les supprimer.
+    # Date cible : saisie dans le formulaire ou demain par défaut
+    date_str = request.form.get("date_cible") \
+               or str(_date.today() + pd.Timedelta(days=1))
+    target = pd.to_datetime(date_str)
+
+    # Construction des features
+    features = pd.DataFrame([{
+        "jour_semaine": target.dayofweek,
+        "mois":         target.month
+    }])
+
+    # Prédiction
+    pred = model_pred.predict(features)[0]
+    pred_colis, pred_benef, pred_credit = \
+        int(pred[0]), round(pred[1], 2), round(pred[2], 2)
+
+    # Mini-graphiques historiques + point prédit
+    df_hist = df_daily_hist.sort_values("jour").copy()  # df_daily_hist vient du dashboard
+    fut_label = target.date().isoformat()
+
+    def make_fig(col, title, value):
+        aux = df_hist[["jour", col]].copy()
+        aux.loc[len(aux)] = [fut_label, value]
+        fig = px.line(aux, x="jour", y=col, title=title)
+        fig.update_traces(mode="lines+markers")
+        return pio.to_html(fig, full_html=False)
+
+    graph_colis  = make_fig("QUANTITE",        "Historique quantité + prédiction", pred_colis)
+    graph_benef  = make_fig("BENEFICE",        "Historique bénéfice + prédiction", pred_benef)
+    graph_credit = make_fig("RESTANT A PAYER", "Historique crédit + prédiction",   pred_credit)
+
+
+
+
+
+    return render_template(
+        "prediction.html",
+        selected_date=date_str,
+        pred_colis=pred_colis,
+        pred_benef=pred_benef,
+        pred_credit=pred_credit,
+
+
+        graph_colis=graph_colis,
+        graph_benef=graph_benef,
+        graph_credit=graph_credit
+    )
 
 if __name__ == '__main__':
     app.run(debug=True)
