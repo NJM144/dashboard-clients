@@ -239,17 +239,33 @@ def dashboard():
     mois    = ["Tous"] + [str(m).zfill(2) for m in sorted(df["DATE DU TRANSFERT"].dt.month.dropna().unique())]
     
     
-    
-
+       
     # =======================================================================
     # SECTION 1 : PERFORMANCE (déjà présent, juste pour le contexte)
     # =======================================================================
+
+     # Taux de croissance sur le dernier mois
+    df_monthly = df.groupby(df["DATE DU TRANSFERT"].dt.to_period("M"))["QUANTITE"].sum().reset_index()
+    df_monthly["taux_croissance"] = df_monthly["QUANTITE"].pct_change() * 100
+    dernier_taux = round(df_monthly["taux_croissance"].iloc[-1], 2) if len(df_monthly) > 1 else 0
+      #taux de récurrence client  
+    nb_total_clients = df["EXPEDITEUR"].nunique()
+    nb_recurrents = df["EXPEDITEUR"].value_counts().gt(1).sum()
+    taux_recurrence = round(nb_recurrents / nb_total_clients * 100, 2) if nb_total_clients > 0 else 0
+
     perf_kpi = {
         "volume_total"    : int(df_filtered["QUANTITE"].sum()),
         "nb_expeditions"  : len(df_filtered),
         "nb_types_colis"  : df_filtered[col_class].nunique(),
         "type_plus_frequent": (df_filtered[col_class].mode()[0]
-                               if not df_filtered[col_class].empty else 'N/A')
+                               if not df_filtered[col_class].empty else 'N/A'),
+        "top_client_volume": df_filtered.groupby("EXPEDITEUR")["QUANTITE"].sum().idxmax() if not df_filtered.empty else "N/A",
+        "jour_plus_charge": df_filtered["DATE DU TRANSFERT"].dt.date.value_counts().idxmax() if not df_filtered.empty else "N/A",
+        "volume_moyen_jour": round(df_filtered.groupby(df_filtered["DATE DU TRANSFERT"].dt.date)["QUANTITE"].sum().mean(), 2) if not df_filtered.empty else 0,
+        "taux_croissance": f"{dernier_taux:+.2f}",  # exemple : "+2.02"
+        "taux_recurrence_client": taux_recurrence
+
+
     }
     # ... (les graphiques perf_g1, perf_g2, perf_g3 restent les mêmes)
      # ---------- Graphiques ----------
@@ -279,14 +295,66 @@ def dashboard():
     df_temps = df_temps.groupby('DATE')['QUANTITE'].sum().reset_index()
     fig_perf3 = px.line(df_temps, x='DATE', y='QUANTITE',
                    title="Évolution quotidienne des volumes")
+    
+    # 4. heatmap heure/Jour
+    #heatmap_html = pio.to_html(fig_heatmap, full_html=False)
 
+    # 4. Tableau taux de croissance mensuelle
+        # Construire df_monthly depuis df_filtered (ou df principal filtré)
+    df_filtered["mois"] = df_filtered["DATE DU TRANSFERT"].dt.to_period("M")
+    df_monthly = df_filtered.groupby("mois")["QUANTITE"].sum().reset_index()
+    df_monthly["taux_croissance"] = df_monthly["QUANTITE"].pct_change() * 100
+
+    # Sécuriser la colonne "mois" en chaîne
+    df_monthly["mois"] = df_monthly["mois"].astype(str)
+
+    # Ajouter flèches
+    def get_arrow(val):
+        if pd.isna(val):
+            return ""
+        elif val > 0:
+            return f"<span class='text-green-600 text-semibold text-center'>↗️ +{val:.2f}%</span>"
+        elif val < 0:
+            return f"<span class='text-red-600 text-semibold text-center'>↘️ {val:.2f}%</span>"
+        else:
+            return f"<span class='text-gray-500 text-semibold text-center'>→ 0%</span>"
+
+    df_monthly["Évolution"] = df_monthly["taux_croissance"].apply(get_arrow)
+    df_monthly["QUANTITE"] = df_monthly["QUANTITE"].astype(int)
+
+    # Export HTML avec flèches
+    growth_table_html = df_monthly.tail(6)[["mois", "QUANTITE", "Évolution"]].to_html(
+        index=False,
+        escape=False,
+        classes="table-auto w-full text-md text-center text-gray-700",
+        border=0
+    )
+
+
+    
     # =======================================================================
-    # SECTION 2 : FINANCES (déjà présent, juste pour le contexte)
+    # SECTION 2 : FINANCES 
     # =======================================================================
+
+        # Taux d'encaissement global
+    total_prix = df_filtered["PRIX"].sum()
+    ca_total = df_filtered["MONTANT PAYER"].sum()
+    restant_total = df_filtered["RESTANT A PAYER"].sum()
+
+    top_client_ca = df_filtered.groupby("EXPEDITEUR")["MONTANT PAYER"].sum().idxmax()
+    top_client_impaye = df_filtered.groupby("EXPEDITEUR")["RESTANT A PAYER"].sum().idxmax()
+
+    df_filtered["Taux Impaye"] = (df_filtered["RESTANT A PAYER"] / df_filtered["PRIX"]).fillna(0)
+
     fin_kpi = {
         "ca_total": int(df_filtered["MONTANT PAYER"].sum()),
         "restant_total": int(df_filtered["RESTANT A PAYER"].sum()),
-        "taux_encaissement": round(df_filtered["MONTANT PAYER"].sum() / df_filtered["PRIX"].sum() * 100, 2) if df_filtered["PRIX"].sum() > 0 else 0
+        "taux_encaissement": round(df_filtered["MONTANT PAYER"].sum() / df_filtered["PRIX"].sum() * 100, 2) if df_filtered["PRIX"].sum() > 0 else 0,
+        "top_client_ca": top_client_ca,
+        "top_client_impaye": top_client_impaye,
+        "ca_moyen_expedition": int(df_filtered["MONTANT PAYER"].mean()) if len(df_filtered) > 0 else 0,
+        "taux_impaye_moyen": round(df_filtered["Taux Impaye"].mean() * 100, 2)
+
     }
     # ... (les graphiques fin_g1, fin_g2, fin_g3 restent les mêmes)
      # ---------- Graphiques ----------
@@ -320,6 +388,11 @@ def dashboard():
         y=['MONTANT PAYER', 'RESTANT A PAYER'],
         title="CA vs impayés (mensuel)"
     )
+    # CA vs impayé mensuel
+    df_filtered["mois"] = df_filtered["DATE DU TRANSFERT"].dt.to_period("M")
+    df_mensuel = df_filtered.groupby("mois")[["MONTANT PAYER", "RESTANT A PAYER"]].sum().reset_index()
+    df_mensuel["mois"] = df_mensuel["mois"].astype(str)
+    fig_fin4 = px.bar(df_mensuel, x="mois", y=["MONTANT PAYER", "RESTANT A PAYER"], barmode="group", title="CA vs impayés (mensuel)")
 
     # =======================================================================
     # SECTION 3 : ANALYSE CLIENTS (fusion de la logique de /clients)
@@ -472,9 +545,13 @@ def dashboard():
         selected_mois       = selected_mois,
         selected_date       = selected_date,
 
-        # Données onglet Performance/Finance (inchangé)
-        # perf_kpi=perf_kpi, fin_kpi=fin_kpi,
-        # perf_g1=pio.to_html(fig_perf1, full_html=False), ... etc
+        # Finance 
+        fin_kpi=fin_kpi,
+        fin_g1=pio.to_html(fig_fin1, full_html=False),
+        fin_g2=pio.to_html(fig_fin2, full_html=False),
+        fin_g3=pio.to_html(fig_fin3, full_html=False),
+        fin_g4=pio.to_html(fig_fin4, full_html=False),
+
         
         # ➜ NOUVEAU : Données pour l'onglet Clients
         clients_kpi=clients_kpi,
@@ -491,13 +568,15 @@ def dashboard():
         # ... (n'oublie pas de passer aussi les variables perf et fin !)
         # --- variables pour les ONGLETs ---
         perf_kpi = perf_kpi,
-        fin_kpi  = fin_kpi,
+        
         perf_g1  = pio.to_html(fig_perf1, full_html=False),
         perf_g2  = pio.to_html(fig_perf2, full_html=False),
         perf_g3  = pio.to_html(fig_perf3, full_html=False),
-        fin_g1   = pio.to_html(fig_fin1, full_html=False),
-        fin_g2   = pio.to_html(fig_fin2, full_html=False),
-        fin_g3   = pio.to_html(fig_fin3, full_html=False),
+        
+        #perf_heatmap=heatmap_html,
+        growth_table=growth_table_html,
+
+
 
         # ➜ NOUVEAU : Données pour l'onglet Tournées
         tournees_map=tournees_map,

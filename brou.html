@@ -1,0 +1,16 @@
+<!-- Recent Bookings and Room Status -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                    <!-- Recent Bookings -->
+                    <div class="bg-white p-4 rounded-lg shadow">{{ perf_g1|safe }}</div>
+                    <div class="bg-white p-4 rounded-lg shadow">{{ perf_g2|safe }}</div>
+
+                    <!-- Room Status -->
+                    <div class="bg-white p-4 rounded-xl shadow text-center">
+                        <p class="text-sm text-gray-500">Volume total expédié</p>
+                        <p class="text-xl font-bold text-blue-700">{{ perf_kpi.volume_total }}</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow text-center">
+                        <p class="text-sm text-gray-500">Nombre d'expéditions</p>
+                        <p class="text-lg font-bold text-green-600">{{ perf_kpi.nb_expeditions }}</p>
+                    </div>
+                </div>
