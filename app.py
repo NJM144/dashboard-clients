@@ -337,6 +337,33 @@ def prediction():
 
 
 
+@app.route('/rapport-client', methods=['POST'])
+def rapport_client():
+    client_nom = request.form.get('client_nom')
+    
+    # Filtrage des données
+    df_client = df[df['client'] == client_nom]
+
+    # Exemple de rapport simple (à enrichir)
+    nb_envois = df_client.shape[0]
+    total_ca = df_client['montant_payer'].sum()
+    taux_impaye = df_client['impaye'].mean() * 100 if 'impaye' in df_client.columns else 0
+
+    # Texte du rapport (améliorable avec NLP plus tard)
+    rapport = f"""
+    Le client <strong>{client_nom}</strong> a effectué <strong>{nb_envois}</strong> envois.<br>
+    Son chiffre d'affaires total est de <strong>{total_ca:.0f} FCFA</strong>.<br>
+    Le taux d'impayé moyen est de <strong>{taux_impaye:.2f}%</strong>.
+    """
+
+    # Recharge dashboard avec rapport
+    return render_template(
+        'dashboard.html',
+        clients_list=sorted(df['client'].unique()),
+        rapport=rapport,
+        client_selectionne=client_nom,
+        # réinjecte les autres valeurs nécessaires :perf_kpi=..., perf_g1=..., fin_kpi=..., etc.
+  )
 
 
 
