@@ -196,7 +196,7 @@ def tournee():
     )
 
     map_html = fig.to_html(full_html=False)
-    return render_template("tournee.html", map_html=map_html, dates=dates, selected_date=selected_
+    return render_template("tournee.html", map_html=map_html, dates=dates, selected_date=selected_date)
 
 
 
