@@ -357,39 +357,6 @@ def prediction():
         graph_credit=graph_credit
     )
 
-from flask import request, render_template
-import pandas as pd
-
-@app.route('/rapport-client', methods=['POST'])
-def rapport_client():
-    client_nom = request.form.get('client_nom')
-
-    # 🔍 Filtrer les données du client (à adapter selon ton DataFrame)
-    df_client = df[df['EXPEDITEUR'] == client_nom]
-
-    # 📄 Construire le contenu du rapport
-    texte = f"📋 Rapport Marketing et Commercial pour \n\n"
-    texte += f"- Nombre total d'envois : \n"
-    texte += f"- Volume total expédié : \n"
-    texte += f"- CA généré :  FCFA\n"
-    texte += f"- Taux d’impayé :  %\n\n"
-    texte += "🔎 Conseils :\n"
-    texte += "- Proposer des réductions sur les colis fréquents\n"
-    texte += "- Renforcer la fidélisation si volume élevé\n"
-
-    # 📁 Créer un fichier temporaire à renvoyer
-    buffer = BytesIO()
-    buffer.write(texte.encode('utf-8'))
-    buffer.seek(0)
-
-
-
-    return render_template(
-    "rapport_client.html",
-    rapport=texte,
-    client_selectionne=client_nom,
-    clients_list=sorted(df["EXPEDITEUR"].dropna().unique())
-)
 
 
 
