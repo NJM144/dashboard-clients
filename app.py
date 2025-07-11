@@ -5,9 +5,13 @@ import plotly.io as pio
 from datetime import datetime
 import plotly
 # imports généraux
-
+import openrouteservice
 from datetime import date as _date      #  ←←  AJOUTE (ou vérifie) CETTE LIGNE
-
+from flask import Flask, render_template, request
+import pandas as pd
+import plotly.graph_objects as go
+import numpy as np
+from ors_utils import get_route_with_ors
 app = Flask(__name__)
 from flask import render_template
 import os
@@ -15,7 +19,22 @@ from joblib import load
 from flask import send_file
 from io import BytesIO
 
-
+def get_route_with_ors(coords_ordered, api_key):
+    client = openrouteservice.Client(key=api_key)
+    
+    # ORS attend (lon, lat) et non (lat, lon)
+    coords = [(lon, lat) for lat, lon in coords_ordered]
+    
+    try:
+        route = client.directions(coords, profile='driving-car', format='geojson')
+        # Extraire la route réelle
+        route_coords = route['features'][0]['geometry']['coordinates']
+        # Reconvertir en (lat, lon) pour Plotly
+        route_latlon = [(lat, lon) for lon, lat in route_coords]
+        return route_latlon
+    except Exception as e:
+        print("Erreur ORS:", e)
+        return []
 
 MODEL_PATH = os.path.join(os.path.dirname(__file__),"model",  "model_random_forest.joblib")
 
@@ -26,36 +45,6 @@ except Exception as e:
     model_pred = None
 
 
-# ── Charge et entraîne une seule fois ────────────────────────────────────
-import pandas as pd
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import train_test_split
-from datetime import date as _date
-
-def train_prediction_model(csv_path="data/Transferts_complet.csv"):
-    df = pd.read_csv(csv_path, sep=';')
-    df['DATE DU TRANSFERT'] = pd.to_datetime(df['DATE DU TRANSFERT'], errors='coerce')
-    df['jour'] = df['DATE DU TRANSFERT'].dt.date
-
-    daily = (df.groupby('jour')
-               .agg({'QUANTITE':'sum','MONTANT PAYER':'sum',
-                     'RESTANT A PAYER':'sum','PRIX':'sum'})
-               .reset_index())
-    daily['BENEFICE'] = daily['PRIX']
-    daily['jour_semaine'] = pd.to_datetime(daily['jour']).dt.dayofweek
-    daily['mois'] = pd.to_datetime(daily['jour']).dt.month
-
-    X = daily[['jour_semaine', 'mois']]
-    y = daily[['QUANTITE','BENEFICE','RESTANT A PAYER']]
-
-    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.25, random_state=42)
-    model = RandomForestRegressor(n_estimators=200, random_state=42)
-    model.fit(Xtr, ytr)
-
-    return model, daily  # on renvoie aussi l'historique pour les graphiques
-
-model_pred, df_daily_hist = train_prediction_model()
-
 
 
 
@@ -89,6 +78,112 @@ def train_prediction_model(csv_path="data/Transferts_complet.csv"):
     return model, daily  # on renvoie aussi l'historique pour les graphiques
 
 model_pred, df_daily_hist = train_prediction_model()
+
+
+
+
+
+# ── Charge et entraîne une seule fois ────────────────────────────────────
+import pandas as pd
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
+from datetime import date as _date
+
+def train_prediction_model(csv_path="data/Transferts_complet.csv"):
+    df = pd.read_csv(csv_path, sep=';')
+    df['DATE DU TRANSFERT'] = pd.to_datetime(df['DATE DU TRANSFERT'], errors='coerce')
+    df['jour'] = df['DATE DU TRANSFERT'].dt.date
+
+    daily = (df.groupby('jour')
+               .agg({'QUANTITE':'sum','MONTANT PAYER':'sum',
+                     'RESTANT A PAYER':'sum','PRIX':'sum'})
+               .reset_index())
+    daily['BENEFICE'] = daily['PRIX']
+    daily['jour_semaine'] = pd.to_datetime(daily['jour']).dt.dayofweek
+    daily['mois'] = pd.to_datetime(daily['jour']).dt.month
+
+    X = daily[['jour_semaine', 'mois']]
+    y = daily[['QUANTITE','BENEFICE','RESTANT A PAYER']]
+
+    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.25, random_state=42)
+    model = RandomForestRegressor(n_estimators=200, random_state=42)
+    model.fit(Xtr, ytr)
+
+    return model, daily  # on renvoie aussi l'historique pour les graphiques
+
+model_pred, df_daily_hist = train_prediction_model()
+
+
+from flask import Flask, render_template, request
+import pandas as pd
+import plotly.graph_objects as go
+import numpy as np
+from ors_utils import get_route_with_ors  # ou remplace par la fonction si elle est dans app.py
+
+app = Flask(__name__)
+
+ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjYzMmE4Y2RiY2YwZTRmODdhMmRjY2NjM2FlN2IzODdlIiwiaCI6Im11cm11cjY0In0="
+
+@app.route("/tournee", methods=["GET", "POST"])
+def tournee():
+    df = pd.read_csv("data/Transferts_complet.csv", sep=";", encoding="utf-8")
+    df = df.dropna(subset=["lat", "lon"])
+    df['DATE DU TRANSFERT'] = pd.to_datetime(df['DATE DU TRANSFERT'])
+    df['jour'] = df['DATE DU TRANSFERT'].dt.date
+    dates = df['jour'].sort_values().unique()
+
+    selected_date = request.form.get("selected_date", str(dates[0]))
+    df_day = df[df['jour'] == pd.to_datetime(selected_date).date()].reset_index(drop=True)
+    coords = df_day[['lat', 'lon']].to_numpy()
+
+    # Nearest neighbor TSP (simple)
+    if len(coords) > 1:
+        visited = [0]
+        while len(visited) < len(coords):
+            last = coords[visited[-1]]
+            rest = [i for i in range(len(coords)) if i not in visited]
+            next_city = rest[np.argmin([np.linalg.norm(last - coords[i]) for i in rest])]
+            visited.append(next_city)
+        coords_ordered = coords[visited]
+    else:
+        coords_ordered = coords
+
+    # Appel ORS pour trajet routier
+    route = get_route_with_ors(coords_ordered.tolist(), ORS_API_KEY)
+
+    # Générer la carte Plotly
+    fig = go.Figure()
+
+    # Points de livraison
+    fig.add_trace(go.Scattermapbox(
+        lat=[lat for lat, lon in coords_ordered],
+        lon=[lon for lat, lon in coords_ordered],
+        mode='markers+text',
+        text=[f"Étape {i+1}" for i in range(len(coords_ordered))],
+        marker=dict(size=10, color='red'),
+        name="Points de livraison"
+    ))
+
+    # Tracé du trajet ORS
+    if route:
+        fig.add_trace(go.Scattermapbox(
+            lat=[lat for lat, lon in route],
+            lon=[lon for lat, lon in route],
+            mode='lines',
+            line=dict(width=4, color='blue'),
+            name="Trajet routier (ORS)"
+        ))
+
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        mapbox_zoom=11,
+        mapbox_center={"lat": coords_ordered[0][0], "lon": coords_ordered[0][1]},
+        margin={"r":0,"t":0,"l":0,"b":0}
+    )
+
+    map_html = fig.to_html(full_html=False)
+    return render_template("tournee.html", map_html=map_html, dates=dates, selected_date=selected_
+
 
 
 
