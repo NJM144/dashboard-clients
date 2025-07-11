@@ -356,66 +356,63 @@ def prediction():
         graph_credit=graph_credit
     )
 
+from flask import request, render_template
+import pandas as pd
+
 @app.route('/rapport-client', methods=['POST'])
 def rapport_client():
     client_nom = request.form.get('client_nom')
 
-    # 🔍 Filtrer les données du client (à adapter selon ton DataFrame)
+    # 🔍 Filtrer les données du client
     df_client = df[df['EXPEDITEUR'] == client_nom]
-# 📄 Construire un rapport marketing structuré pour un client
-texte = f"""📋 **Rapport Marketing & Commercial pour le client "EXEMPLO SARL"**
+
+    # 📊 Calculs dynamiques (exemples fictifs ici)
+    nb_envois = len(df_client)
+    volume_total = df_client['POIDS (KG)'].sum()  # ou une autre colonne volume
+    ca_total = df_client['PRIX'].sum()
+    taux_impaye = 100 * df_client[df_client['STATUT'] == 'IMPAYE'].shape[0] / nb_envois if nb_envois > 0 else 0
+
+    # 📄 Construire le rapport
+    texte = f"""📋 Rapport Marketing & Commercial pour le client **{client_nom}**
 
 🔢 **Synthèse des activités**
-- Nombre total d'envois : 128
-- Volume total expédié : 4 850 kg
-- Chiffre d'affaires généré : 3 250 000 FCFA
-- Taux d’impayé : 2,3 %
+- Nombre total d'envois : {nb_envois}
+- Volume total expédié : {volume_total:.1f} kg
+- Chiffre d'affaires généré : {ca_total:,.0f} FCFA
+- Taux d’impayé : {taux_impaye:.1f} %
 
 ---
 
 📈 **Analyse marketing**
 
-Le client "EXEMPLO SARL" réalise une fréquence régulière d’envois, avec un pic observé en début de mois et une préférence pour les livraisons express. Le volume moyen par envoi est relativement stable, indiquant un bon niveau de prévisibilité dans ses besoins logistiques.
-
-Son chiffre d’affaires généré sur les 3 derniers mois positionne ce client dans le top 15 % de notre portefeuille. Son taux d’impayé reste faible, ce qui en fait un client fiable financièrement.
+Le client **{client_nom}** effectue des envois réguliers. Les données montrent un bon rythme d’activité, avec des volumes intéressants et une bonne fiabilité.
 
 ---
 
 🎯 **Opportunités commerciales**
-
-- Ce client présente un **potentiel élevé pour des services premium**, notamment le suivi en temps réel, la garantie de livraison sous 24h, ou l’emballage personnalisé.
-- Il pourrait bénéficier d’un **contrat forfaitaire mensuel**, optimisant ses coûts pour des envois fréquents.
+- Potentiel pour services premium : livraison prioritaire, suivi renforcé.
+- Pertinence d’un contrat forfaitaire si la fréquence est stable.
 
 ---
 
 💡 **Recommandations stratégiques**
-
-- Mettre en place une **offre de fidélisation** avec palier de remise selon volume mensuel.
-- Proposer un **accompagnement personnalisé** (référent client dédié + alertes anticipées).
-- Suggérer l’**intégration de notre API** à son système pour automatiser les demandes de livraison.
+- Lancer une offre de fidélisation (remise, avantage volume)
+- Proposer un interlocuteur dédié
+- Envisager un accompagnement pour digitaliser les demandes via API
 
 ---
 
 🔍 **Conclusion**
-
-EXEMPLO SARL est un client à fort potentiel. Une approche combinant services à valeur ajoutée et fidélisation ciblée permettrait d’augmenter la rétention, tout en renforçant la satisfaction client. Il est recommandé de classer ce client comme "prioritaire stratégique" dans le segment PME dynamique.
-
+Ce client présente un potentiel stratégique élevé. Une approche proactive permettrait de renforcer la collaboration et de consolider sa place dans notre portefeuille.
 """
 
-
-    # 📁 Créer un fichier temporaire à renvoyer
-    buffer = BytesIO()
-    buffer.write(texte.encode('utf-8'))
-    buffer.seek(0)
-
-
-
+    # 🧾 Rendu HTML
     return render_template(
-    "rapport_client.html",
-    rapport=texte,
-    client_selectionne=client_nom,
-    clients_list=sorted(df["EXPEDITEUR"].dropna().unique())
-)
+        "rapport_client.html",
+        rapport=texte,
+        client_selectionne=client_nom,
+        clients_list=sorted(df["EXPEDITEUR"].dropna().unique())
+    )
 
 
 
