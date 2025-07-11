@@ -9,7 +9,7 @@ import plotly
 from datetime import date as _date      #  ←←  AJOUTE (ou vérifie) CETTE LIGNE
 
 app = Flask(__name__)
-
+from flask import render_template
 import os
 from joblib import load
 from flask import send_file
@@ -355,12 +355,15 @@ def rapport_client():
     buffer.write(texte.encode('utf-8'))
     buffer.seek(0)
 
-    return send_file(
-        buffer,
-        as_attachment=True,
-        download_name=f"rapport_{client_nom}.txt",
-        mimetype='text/plain'
-    )
+
+
+    return render_template(
+    "rapport_client.html",
+    rapport=texte,
+    client_selectionne=client_nom,
+    clients_list=sorted(df["EXPEDITEUR"].dropna().unique())
+)
+
 
 
 
