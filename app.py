@@ -118,7 +118,21 @@ from flask import Flask, render_template, request
 import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
-from ors_utils import get_route_with_ors  # ou remplace par la fonction si elle est dans app.py
+import openrouteservice
+
+def get_route_with_ors(coords_ordered, api_key):
+    client = openrouteservice.Client(key=api_key)
+    
+    # ORS attend (lon, lat)
+    coords = [(lon, lat) for lat, lon in coords_ordered]
+    
+    try:
+        route = client.directions(coords, profile='driving-car', format='geojson')
+        geometry = route['features'][0]['geometry']['coordinates']
+        return [(lat, lon) for lon, lat in geometry]
+    except Exception as e:
+        print("Erreur ORS:", e)
+        return []
 
 app = Flask(__name__)
 
@@ -182,8 +196,7 @@ def tournee():
     )
 
     map_html = fig.to_html(full_html=False)
-    return render_template("tournee.html", map_html=map_html, dates=dates, selected_date=selected_date)
-
+    return render_template("tournee.html", map_html=map_html, dates=dates, selected_date=selected_
 
 
 
