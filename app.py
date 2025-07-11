@@ -396,7 +396,7 @@ app = Flask(__name__)
 @app.route("/")
 def carte_livraison():
     # Chargement des données
-    df = pd.read_csv("data/ListeTransfert_geocode (2) (1)", sep=";", encoding="utf-8")
+    df = pd.read_csv("data/ListeTransfert_geocode (2) (1).csv", sep=";", encoding="utf-8")
     
     # On garde uniquement les lignes avec coordonnées valides
     df = df.dropna(subset=["lat", "lon"])
