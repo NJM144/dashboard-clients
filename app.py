@@ -675,23 +675,30 @@ def clients():
                            ) # Mets tes variables ici    
 
 
+from flask import Flask, render_template
+import pandas as pd
+import plotly.graph_objects as go
+
+app = Flask(__name__)
+
 @app.route('/tournees')
 def tournees():
-    def carte_livraison():
     # Chargement des données
     df = pd.read_csv("data/ListeTransfert_geocode (2) (1).csv", sep=";", encoding="utf-8")
-    
+    df.columns = df.columns.str.strip().str.lower()  # Nettoyage noms colonnes
+    if "lat" not in df.columns or "lon" not in df.columns:
+        return "Colonnes 'lat' ou 'lon' manquantes dans le fichier."
+
     # On garde uniquement les lignes avec coordonnées valides
     df = df.dropna(subset=["lat", "lon"])
 
     # Création de la carte Plotly
     fig = go.Figure()
-
     fig.add_trace(go.Scattermapbox(
         lat=df["lat"],
         lon=df["lon"],
         mode="markers+text",
-        text=df["REFERENCE"],
+        text=df["reference"],  # adapte si différent
         marker=dict(size=10, color="red"),
         name="Points de livraison"
     ))
@@ -700,11 +707,12 @@ def tournees():
         mapbox_style="open-street-map",
         mapbox_zoom=11,
         mapbox_center={"lat": df["lat"].iloc[0], "lon": df["lon"].iloc[0]},
-        margin={"r":0,"t":0,"l":0,"b":0}
+        margin={"r": 0, "t": 0, "l": 0, "b": 0}
     )
 
     map_html = fig.to_html(full_html=False)
-    return render_template("tournees.html")
+    return render_template("tournees.html", map_html=map_html)
+
 
 @app.route('/logistique',methods=['GET', 'POST'])
 def logistique():
