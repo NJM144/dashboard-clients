@@ -357,63 +357,36 @@ def prediction():
         graph_credit=graph_credit
     )
 
-from flask import request, render_template
-import pandas as pd
-
 @app.route('/rapport-client', methods=['POST'])
 def rapport_client():
     client_nom = request.form.get('client_nom')
 
-    # 🔍 Filtrer les données du client
+    # 🔍 Filtrer les données du client (à adapter selon ton DataFrame)
     df_client = df[df['EXPEDITEUR'] == client_nom]
 
-    # 📊 Calculs dynamiques (exemples fictifs ici)
-    nb_envois = len(df_client)
-    volume_total = df_client['POIDS (KG)'].sum()  # ou une autre colonne volume
-    ca_total = df_client['PRIX'].sum()
-    taux_impaye = 100 * df_client[df_client['STATUT'] == 'IMPAYE'].shape[0] / nb_envois if nb_envois > 0 else 0
+    # 📄 Construire le contenu du rapport
+    texte = f"📋 Rapport Marketing et Commercial pour \n\n"
+    texte += f"- Nombre total d'envois : \n"
+    texte += f"- Volume total expédié : \n"
+    texte += f"- CA généré :  FCFA\n"
+    texte += f"- Taux d’impayé :  %\n\n"
+    texte += "🔎 Conseils :\n"
+    texte += "- Proposer des réductions sur les colis fréquents\n"
+    texte += "- Renforcer la fidélisation si volume élevé\n"
 
-    # 📄 Construire le rapport
-    texte = f"""📋 Rapport Marketing & Commercial pour le client **{client_nom}**
+    # 📁 Créer un fichier temporaire à renvoyer
+    buffer = BytesIO()
+    buffer.write(texte.encode('utf-8'))
+    buffer.seek(0)
 
-🔢 **Synthèse des activités**
-- Nombre total d'envois : {nb_envois}
-- Volume total expédié : {volume_total:.1f} kg
-- Chiffre d'affaires généré : {ca_total:,.0f} FCFA
-- Taux d’impayé : {taux_impaye:.1f} %
 
----
 
-📈 **Analyse marketing**
-
-Le client **{client_nom}** effectue des envois réguliers. Les données montrent un bon rythme d’activité, avec des volumes intéressants et une bonne fiabilité.
-
----
-
-🎯 **Opportunités commerciales**
-- Potentiel pour services premium : livraison prioritaire, suivi renforcé.
-- Pertinence d’un contrat forfaitaire si la fréquence est stable.
-
----
-
-💡 **Recommandations stratégiques**
-- Lancer une offre de fidélisation (remise, avantage volume)
-- Proposer un interlocuteur dédié
-- Envisager un accompagnement pour digitaliser les demandes via API
-
----
-
-🔍 **Conclusion**
-Ce client présente un potentiel stratégique élevé. Une approche proactive permettrait de renforcer la collaboration et de consolider sa place dans notre portefeuille.
-"""
-
-    # 🧾 Rendu HTML
     return render_template(
-        "rapport_client.html",
-        rapport=texte,
-        client_selectionne=client_nom,
-        clients_list=sorted(df["EXPEDITEUR"].dropna().unique())
-    )
+    "rapport_client.html",
+    rapport=texte,
+    client_selectionne=client_nom,
+    clients_list=sorted(df["EXPEDITEUR"].dropna().unique())
+)
 
 
 
