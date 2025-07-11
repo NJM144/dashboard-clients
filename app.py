@@ -341,11 +341,11 @@ def rapport_client():
     df_client = df[df['EXPEDITEUR'] == client_nom]
 
     # 📄 Construire le contenu du rapport
-    texte = f"📋 Rapport Marketing et Commercial pour {client_nom}\n\n"
-    texte += f"- Nombre total d'envois : {len(df_client)}\n"
-    texte += f"- Volume total expédié : {df_client['volume'].sum()}\n"
-    texte += f"- CA généré : {df_client['montant'].sum()} FCFA\n"
-    texte += f"- Taux d’impayé : {df_client['impaye'].mean() * 100:.2f} %\n\n"
+    texte = f"📋 Rapport Marketing et Commercial pour \n\n"
+    texte += f"- Nombre total d'envois : \n"
+    texte += f"- Volume total expédié : \n"
+    texte += f"- CA généré :  FCFA\n"
+    texte += f"- Taux d’impayé :  %\n\n"
     texte += "🔎 Conseils :\n"
     texte += "- Proposer des réductions sur les colis fréquents\n"
     texte += "- Renforcer la fidélisation si volume élevé\n"
