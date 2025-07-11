@@ -55,7 +55,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from datetime import date as _date
 
-def train_prediction_model(csv_path="data/Transferts_complet.csv"):
+def train_prediction_model(csv_path="data/ListeTransfert_geocode (2) (1).csv"):
     df = pd.read_csv(csv_path, sep=';')
     df['DATE DU TRANSFERT'] = pd.to_datetime(df['DATE DU TRANSFERT'], errors='coerce')
     df['jour'] = df['DATE DU TRANSFERT'].dt.date
