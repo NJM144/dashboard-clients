@@ -14,7 +14,7 @@ ENV PIP_NO_CACHE_DIR=yes
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 6. Exposer le port Flask par défaut
-EXPOSE 8080
+EXPOSE 5050
 
 # 7. Démarrer l'application Flask
 CMD ["python", "app.py"]
