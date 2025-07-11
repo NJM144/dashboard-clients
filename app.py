@@ -55,9 +55,9 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from datetime import date as _date
 
-def train_prediction_model(csv_path="data/ListeTransfert_geocode (2) (1).csv"):
+def train_prediction_model(csv_path="data/Transferts_complet.csv"):
     df = pd.read_csv(csv_path, sep=';')
-    df['DATE DU TRANSFERT'] = pd.to_datetime(df['DATE DU TRANSFERT'], format='%d/%m/%Y %H:%M', errors='coerce')
+    df['DATE DU TRANSFERT'] = pd.to_datetime(df['DATE DU TRANSFERT'], errors='coerce')
     df['jour'] = df['DATE DU TRANSFERT'].dt.date
 
     daily = (df.groupby('jour')
@@ -89,7 +89,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from datetime import date as _date
 
-def train_prediction_model(csv_path="data/ListeTransfert_geocode (2) (1).csv"):
+def train_prediction_model(csv_path="data/Transferts_complet.csv"):
     df = pd.read_csv(csv_path, sep=';')
     df['DATE DU TRANSFERT'] = pd.to_datetime(df['DATE DU TRANSFERT'], errors='coerce')
     df['jour'] = df['DATE DU TRANSFERT'].dt.date
@@ -112,6 +112,92 @@ def train_prediction_model(csv_path="data/ListeTransfert_geocode (2) (1).csv"):
     return model, daily  # on renvoie aussi l'historique pour les graphiques
 
 model_pred, df_daily_hist = train_prediction_model()
+
+
+from flask import Flask, render_template, request
+import pandas as pd
+import plotly.graph_objects as go
+import numpy as np
+import openrouteservice
+
+def get_route_with_ors(coords_ordered, api_key):
+    client = openrouteservice.Client(key=api_key)
+    
+    # ORS attend (lon, lat)
+    coords = [(lon, lat) for lat, lon in coords_ordered]
+    
+    try:
+        route = client.directions(coords, profile='driving-car', format='geojson')
+        geometry = route['features'][0]['geometry']['coordinates']
+        return [(lat, lon) for lon, lat in geometry]
+    except Exception as e:
+        print("Erreur ORS:", e)
+        return []
+
+app = Flask(__name__)
+
+ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjYzMmE4Y2RiY2YwZTRmODdhMmRjY2NjM2FlN2IzODdlIiwiaCI6Im11cm11cjY0In0="
+
+@app.route("/tournee", methods=["GET", "POST"])
+def tournee():
+    df = pd.read_csv("data/Transferts_complet.csv", sep=";", encoding="utf-8")
+    df = df.dropna(subset=["lat", "lon"])
+    df['DATE DU TRANSFERT'] = pd.to_datetime(df['DATE DU TRANSFERT'])
+    df['jour'] = df['DATE DU TRANSFERT'].dt.date
+    dates = df['jour'].sort_values().unique()
+
+    selected_date = request.form.get("selected_date", str(dates[0]))
+    df_day = df[df['jour'] == pd.to_datetime(selected_date).date()].reset_index(drop=True)
+    coords = df_day[['lat', 'lon']].to_numpy()
+
+    # Nearest neighbor TSP (simple)
+    if len(coords) > 1:
+        visited = [0]
+        while len(visited) < len(coords):
+            last = coords[visited[-1]]
+            rest = [i for i in range(len(coords)) if i not in visited]
+            next_city = rest[np.argmin([np.linalg.norm(last - coords[i]) for i in rest])]
+            visited.append(next_city)
+        coords_ordered = coords[visited]
+    else:
+        coords_ordered = coords
+
+    # Appel ORS pour trajet routier
+    route = get_route_with_ors(coords_ordered.tolist(), ORS_API_KEY)
+
+    # Générer la carte Plotly
+    fig = go.Figure()
+
+    # Points de livraison
+    fig.add_trace(go.Scattermapbox(
+        lat=[lat for lat, lon in coords_ordered],
+        lon=[lon for lat, lon in coords_ordered],
+        mode='markers+text',
+        text=[f"Étape {i+1}" for i in range(len(coords_ordered))],
+        marker=dict(size=10, color='red'),
+        name="Points de livraison"
+    ))
+
+    # Tracé du trajet ORS
+    if route:
+        fig.add_trace(go.Scattermapbox(
+            lat=[lat for lat, lon in route],
+            lon=[lon for lat, lon in route],
+            mode='lines',
+            line=dict(width=4, color='blue'),
+            name="Trajet routier (ORS)"
+        ))
+
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        mapbox_zoom=11,
+        mapbox_center={"lat": coords_ordered[0][0], "lon": coords_ordered[0][1]},
+        margin={"r":0,"t":0,"l":0,"b":0}
+    )
+
+    map_html = fig.to_html(full_html=False)
+    return render_template("tournee.html", map_html=map_html, dates=dates, selected_date=selected_date)
+
 
 
 
@@ -158,7 +244,6 @@ def filter_df(df_source: pd.DataFrame, form: Dict[str, str]) -> pd.DataFrame:
         df_out = df_out[df_out["DATE DU TRANSFERT"].dt.date == date_sel.date()]
 
     return df_out
-
 
 
 
@@ -300,9 +385,43 @@ def dashboard():
         fin_g3   = pio.to_html(fig_fin3, full_html=False)
     )
 
+from flask import request, render_template
 
+from flask import Flask, render_template
+import pandas as pd
+import plotly.graph_objects as go
 
+app = Flask(__name__)
 
+@app.route("/")
+def carte_livraison():
+    # Chargement des données
+    df = pd.read_csv("data/Transferts_complet.csv", sep=";", encoding="utf-8")
+    
+    # On garde uniquement les lignes avec coordonnées valides
+    df = df.dropna(subset=["lat", "lon"])
+
+    # Création de la carte Plotly
+    fig = go.Figure()
+
+    fig.add_trace(go.Scattermapbox(
+        lat=df["lat"],
+        lon=df["lon"],
+        mode="markers+text",
+        text=df["REFERENCE"],
+        marker=dict(size=10, color="red"),
+        name="Points de livraison"
+    ))
+
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        mapbox_zoom=11,
+        mapbox_center={"lat": df["lat"].iloc[0], "lon": df["lon"].iloc[0]},
+        margin={"r":0,"t":0,"l":0,"b":0}
+    )
+
+    map_html = fig.to_html(full_html=False)
+    return render_template("tournees.html", map_html=map_html)
 
 @app.route("/prediction", methods=["GET", "POST"])
 def prediction():
@@ -357,6 +476,36 @@ def prediction():
         graph_credit=graph_credit
     )
 
+@app.route('/rapport-client', methods=['POST'])
+def rapport_client():
+    client_nom = request.form.get('client_nom')
+
+    # 🔍 Filtrer les données du client (à adapter selon ton DataFrame)
+    df_client = df[df['EXPEDITEUR'] == client_nom]
+
+    # 📄 Construire le contenu du rapport
+    texte = f"📋 Rapport Marketing et Commercial pour \n\n"
+    texte += f"- Nombre total d'envois : \n"
+    texte += f"- Volume total expédié : \n"
+    texte += f"- CA généré :  FCFA\n"
+    texte += f"- Taux d’impayé :  %\n\n"
+    texte += "🔎 Conseils :\n"
+    texte += "- Proposer des réductions sur les colis fréquents\n"
+    texte += "- Renforcer la fidélisation si volume élevé\n"
+
+    # 📁 Créer un fichier temporaire à renvoyer
+    buffer = BytesIO()
+    buffer.write(texte.encode('utf-8'))
+    buffer.seek(0)
+
+
+
+    return render_template(
+    "rapport_client.html",
+    rapport=texte,
+    client_selectionne=client_nom,
+    clients_list=sorted(df["EXPEDITEUR"].dropna().unique())
+)
 
 
 
@@ -619,7 +768,9 @@ def clients():
                            ) # Mets tes variables ici    
 
 
-
+@app.route('/tournees')
+def tournees():
+    return render_template("tournees.html")
 
 @app.route('/logistique',methods=['GET', 'POST'])
 def logistique():
@@ -704,9 +855,5 @@ def logistique():
 def alertes():
     return render_template("alertes.html")
 
-
-
 if __name__ == '__main__':
-    import os
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(debug=True)
