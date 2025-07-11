@@ -338,7 +338,7 @@ def rapport_client():
     client_nom = request.form.get('client_nom')
 
     # 🔍 Filtrer les données du client (à adapter selon ton DataFrame)
-    df_client = df[df['client'] == client_nom]
+    df_client = df[df['EXPEDITEUR'] == client_nom]
 
     # 📄 Construire le contenu du rapport
     texte = f"📋 Rapport Marketing et Commercial pour {client_nom}\n\n"
