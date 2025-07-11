@@ -7,7 +7,7 @@ itsdangerous==2.2.0
 Jinja2==3.1.6
 MarkupSafe==3.0.2
 narwhals==1.46.0
-numpy==2.3.1
+numpy
 packaging==25.0
 pandas==2.3.1
 plotly==6.2.0
