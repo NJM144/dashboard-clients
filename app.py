@@ -367,20 +367,16 @@ def rapport_client():
     # 🔍 Filtrer les données du client
     df_client = df[df['EXPEDITEUR'] == client_nom]
 
-    # 📊 Calculs dynamiques (exemples fictifs ici)
-    nb_envois = len(df_client)
-    volume_total = df_client['POIDS (KG)'].sum()  # ou une autre colonne volume
-    ca_total = df_client['PRIX'].sum()
-    taux_impaye = 100 * df_client[df_client['STATUT'] == 'IMPAYE'].shape[0] / nb_envois if nb_envois > 0 else 0
+   
 
     # 📄 Construire le rapport
     texte = f"""📋 Rapport Marketing & Commercial pour le client **{client_nom}**
 
 🔢 **Synthèse des activités**
-- Nombre total d'envois : {nb_envois}
-- Volume total expédié : {volume_total:.1f} kg
-- Chiffre d'affaires généré : {ca_total:,.0f} FCFA
-- Taux d’impayé : {taux_impaye:.1f} %
+- Nombre total d'envois : 
+- Volume total expédié : kg
+- Chiffre d'affaires généré : FCFA
+- Taux d’impayé :  %
 
 ---
 
