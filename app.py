@@ -161,9 +161,7 @@ def filter_df(df_source: pd.DataFrame, form: Dict[str, str]) -> pd.DataFrame:
 
 
 
-@app.route("/")
-def home():
-    return render_template("index.html")
+
 
 # ────────────────────────────────────────────────────────────
 #  ROUTE  /dashboard  (remplace entièrement l’ancienne)
