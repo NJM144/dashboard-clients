@@ -8,7 +8,7 @@
 <!-- Ton contenu ici (KPI, Graphs) -->
  <div class="md:col-span-9 space-y-6 mr-4">
                 <!-- KPIs -->
-                <div class="grid grid-cols-1 sm:grid-cols-5 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-6 gap-4">
                     <div class="bg-white p-4 rounded-xl shadow text-center">
                         <p class="text-sm text-gray-500">Nombre total de clients</p>
                         <p class="text-xl font-bold text-blue-700">{{ kpi_nb_client }} </p>
@@ -25,6 +25,23 @@
                         <p class="text-sm text-gray-500">Taux moyen d'impayé par client</p>
                         <p class="text-xl font-bold text-purple-600">{{ taux_moyen_impaye }} %</p>
                     </div>
+                    <div class="bg-white p-4 rounded-xl shadow col-span-1" style="min-height: 180px">
+  <form method="post" action="/rapport-client">
+    <label for="client_select" class="block text-sm font-medium text-gray-700 mb-2">Sélectionnez un client</label>
+    <select name="client" id="client_select" class="w-full border border-gray-300 rounded-lg p-2 mb-3">
+      {% for client in clients_list %}
+        <option value="{{ client }}">{{ client }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg w-full">Générer le rapport</button>
+  </form>
+
+  {% if rapport %}
+  <div class="mt-4 text-sm text-gray-700">
+    <h3 class="font-bold text-gray-800 mb-1">📊 Rapport pour {{ client_selectionne }}</h3>
+    <p>{{ rapport|safe }}</p>
+  </div>
+  {% endif %}
                     <!-- <div class="bg-white p-4 rounded-xl shadow text-center">
                         <p class="text-sm text-gray-500">Montant total restant à payer</p>
                         <p class="text-xl font-bold text-purple-600">{{ kpi_restant_total }} FCFA</p>

@@ -7,17 +7,15 @@ import plotly
 # imports généraux
 
 from datetime import date as _date      #  ←←  AJOUTE (ou vérifie) CETTE LIGNE
-import plotly.express as px
-import plotly.io as pio
 
 app = Flask(__name__)
 
 import os
 from joblib import load
+from flask import send_file
+from io import BytesIO
 
 
-from joblib import load
-import os
 
 MODEL_PATH = os.path.join(os.path.dirname(__file__),"model",  "model_random_forest.joblib")
 
@@ -335,35 +333,36 @@ def prediction():
         graph_credit=graph_credit
     )
 
-
-
 @app.route('/rapport-client', methods=['POST'])
 def rapport_client():
     client_nom = request.form.get('client_nom')
-    
-    # Filtrage des données
-    df_client = df[df['EXPEDITEUR'] == client_nom]
 
-    # Exemple de rapport simple (à enrichir)
-    nb_envois = df_client.shape[0]
-    total_ca = df_client['montant_payer'].sum()
-    taux_impaye = df_client['impaye'].mean() * 100 if 'impaye' in df_client.columns else 0
+    # 🔍 Filtrer les données du client (à adapter selon ton DataFrame)
+    df_client = df[df['client'] == client_nom]
 
-    # Texte du rapport (améliorable avec NLP plus tard)
-    rapport = f"""
-    Le client <strong>{client_nom}</strong> a effectué <strong>{nb_envois}</strong> envois.<br>
-    Son chiffre d'affaires total est de <strong>{total_ca:.0f} FCFA</strong>.<br>
-    Le taux d'impayé moyen est de <strong>{taux_impaye:.2f}%</strong>.
-    """
+    # 📄 Construire le contenu du rapport
+    texte = f"📋 Rapport Marketing et Commercial pour {client_nom}\n\n"
+    texte += f"- Nombre total d'envois : {len(df_client)}\n"
+    texte += f"- Volume total expédié : {df_client['volume'].sum()}\n"
+    texte += f"- CA généré : {df_client['montant'].sum()} FCFA\n"
+    texte += f"- Taux d’impayé : {df_client['impaye'].mean() * 100:.2f} %\n\n"
+    texte += "🔎 Conseils :\n"
+    texte += "- Proposer des réductions sur les colis fréquents\n"
+    texte += "- Renforcer la fidélisation si volume élevé\n"
 
-    # Recharge dashboard avec rapport
-    return render_template(
-        'dashboard.html',
-        clients_list=sorted(df['client'].unique()),
-        rapport=rapport,
-        client_selectionne=client_nom,
-        # réinjecte les autres valeurs nécessaires :perf_kpi=..., perf_g1=..., fin_kpi=..., etc.
-  )
+    # 📁 Créer un fichier temporaire à renvoyer
+    buffer = BytesIO()
+    buffer.write(texte.encode('utf-8'))
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"rapport_{client_nom}.txt",
+        mimetype='text/plain'
+    )
+
+
 
 
 
