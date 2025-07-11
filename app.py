@@ -11,7 +11,7 @@ from flask import Flask, render_template, request
 import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
-from ors_utils import get_route_with_ors
+
 app = Flask(__name__)
 from flask import render_template
 import os
