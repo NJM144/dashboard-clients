@@ -43,16 +43,22 @@
             <p class="text-sm text-gray-500">Taux de recurrence client</p>
             <p class="text-xl font-bold text-red-600">{{ perf_kpi.taux_recurrence_client }}</p>
         </div>
+        
     </div>
     <div class="space-y-6">
         <div class="bg-white p-4 rounded-lg shadow">{{ perf_g1|safe }}</div>
         <div class="bg-white p-4 rounded-lg shadow">{{ perf_g2|safe }}</div>
         <div class="bg-white p-4 rounded-lg shadow">{{ perf_g3|safe }}</div>
-        <!-- <div class="bg-white p-4 rounded-lg shadow">{{ perf_heatmap|safe }}</div> -->
+        
+
+        
+
         <div class="bg-white p-4 rounded-xl shadow mt-6 overflow-x-auto">
             <h2 class="text-lg font-semibold text-center mb-2">Taux de croissance mensuelle</h2>
             {{ growth_table|safe }}
         </div>
+         
+
 
     </div>
 </div>
@@ -83,7 +89,7 @@
 
     <!-- 2 KPI verticaux -->
     <div class="space-y-4">
-        <!-- <div class="bg-white p-4 rounded-xl shadow text-center">
+        <div class="bg-white p-4 rounded-xl shadow text-center">
         <p class="text-md text-yellow-500">Client top CA</p>
         <p class="text-xl font-bold text-slate-600">{{ fin_kpi.top_client_ca }}</p>
         </div>
@@ -94,7 +100,7 @@
         <div class="bg-white p-4 rounded-xl shadow text-center">
         <p class="text-md text-yellow-500">Taux impayés moyen</p>
         <p class="text-xl font-bold text-slate-600">{{ fin_kpi.taux_impaye_moyen }}</p>
-        </div> -->
+        </div>
     </div>
     </div>
 
@@ -163,6 +169,7 @@
             <p class="text-sm text-gray-600">Client avec le + de volume</p>
             <p class="text-xl font-semibold text-red-700">{{ logistique_kpi.client_top_volume }}</p>
         </div>
+        
     </div>    
     <div class="space-y-8">
         <div class="bg-white p-4 rounded-lg shadow">{{ logistique_g1|safe }}</div>
@@ -190,7 +197,7 @@
 
 
 <div x-show="main_tab === 'alertes'" x-transition>
-    <p>Le contenu de la page Alertes & Diagnostic ira ici.</p>
+    <h1>alerte et diagnostique</h1>
 </div>
 
 <style>

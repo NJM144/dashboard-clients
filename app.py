@@ -27,6 +27,7 @@ config = {
 app.config.from_mapping(config)
 cache = Cache(app)
 
+
 # ===================================================================
 # 2. CHARGEMENT DES DONNÉES ET MODÈLES (une seule fois au démarrage)
 # ===================================================================
@@ -61,7 +62,6 @@ def train_prediction_model(csv_path="data/Transferts_complet.csv"):
     return model, daily
 
 model_pred, df_daily_hist = train_prediction_model()
-
 
 # ===================================================================
 # 3. FONCTIONS UTILITAIRES (comme le filtrage)
@@ -111,6 +111,7 @@ def generate_performance_data(filters_tuple):
     nb_total_clients = df["EXPEDITEUR"].nunique()
     nb_recurrents = df["EXPEDITEUR"].value_counts().gt(1).sum()
     taux_recurrence = round(nb_recurrents / nb_total_clients * 100, 2) if nb_total_clients > 0 else 0
+    
 
     perf_kpi = {
         "volume_total"    : int(df_filtered["QUANTITE"].sum()),
@@ -119,10 +120,12 @@ def generate_performance_data(filters_tuple):
         "type_plus_frequent": (df_filtered[col_class].mode()[0]
                                if not df_filtered[col_class].empty else 'N/A'),
         "top_client_volume": df_filtered.groupby("EXPEDITEUR")["QUANTITE"].sum().idxmax() if not df_filtered.empty else "N/A",
-        "jour_plus_charge": df_filtered["DATE DU TRANSFERT"].dt.date.value_counts().idxmax() if not df_filtered.empty else "N/A",
+         "jour_plus_charge": df_filtered["DATE DU TRANSFERT"].dt.date.value_counts().idxmax() if not df_filtered.empty else "N/A",
         "volume_moyen_jour": round(df_filtered.groupby(df_filtered["DATE DU TRANSFERT"].dt.date)["QUANTITE"].sum().mean(), 2) if not df_filtered.empty else 0,
         "taux_croissance": f"{dernier_taux:+.2f}",  # exemple : "+2.02"
-        "taux_recurrence_client": taux_recurrence
+        "taux_recurrence_client": taux_recurrence,
+        # "nb_retours" :df[df['RETOUR COLIS'] == 'Oui'].shape[0],
+        # "moyenne_livreurs" : round(df['NB LIVREURS DISPONIBLES'].mean(), 1)
 
 
     }
@@ -148,12 +151,15 @@ def generate_performance_data(filters_tuple):
         title="Top 10 clients – volume expédié"
     )
 
+    
+
     # 3. Volume expédié dans le temps
     df_temps = df_filtered.copy()
     df_temps['DATE'] = df_temps['DATE DU TRANSFERT'].dt.date
     df_temps = df_temps.groupby('DATE')['QUANTITE'].sum().reset_index()
     fig_perf3 = px.line(df_temps, x='DATE', y='QUANTITE',
                    title="Évolution quotidienne des volumes")
+    
     
     
     # 4. Tableau taux de croissance mensuelle
@@ -186,14 +192,26 @@ def generate_performance_data(filters_tuple):
         classes="table-auto w-full text-md text-center text-gray-700",
         border=0
     )
+
+    #  5.Volume total expédié par livreur (Bar chart)
+    # volume_livreur = df.groupby('LIVREUR')['VOLUME COLIS (m³)'].sum().reset_index()
+    # fig_perf5 = px.bar(volume_livreur, x='LIVREUR', y='VOLUME COLIS (m³)', title='Volume total expédié par livreur')
+
+    #6. Nombre d'expéditions par jour de livraison (Line chart)
+    # df['DATE DE LIVRAISON'] = pd.to_datetime(df['DATE DE LIVRAISON'])
+    # daily_deliveries = df.groupby(df['DATE DE LIVRAISON'].dt.date).size().reset_index(name='Nb Livraison')
+
+    # fig_perf2 = px.line(daily_deliveries, x='DATE DE LIVRAISON', y='Nb Livraison', title='Nombre de livraisons par jour')
+
     return {
         "perf_kpi": perf_kpi,
         "perf_g1": pio.to_html(fig_perf1, full_html=False),
         "perf_g2" :pio.to_html(fig_perf2, full_html=False),
         "perf_g3" :pio.to_html(fig_perf3, full_html=False),
-        
-        #perf_heatmap=heatmap_html,
         "growth_table":growth_table_html,
+        #"perf_g5" :pio.to_html(fig_perf5, full_html=False),
+        #"perf_g6" :pio.to_html(fig_perf6, full_html=False),
+
 
         }
 
@@ -336,7 +354,8 @@ def generate_logistique_data(filters_tuple):
         'volume_total': int(df_filtered['QUANTITE'].sum()),
         'nb_types_colis': df_filtered[col_class].nunique(),
         'type_plus_frequent': df_filtered[col_class].mode()[0] if not df_filtered.empty else 'N/A',
-        'client_top_volume': df_filtered.groupby('EXPEDITEUR')['QUANTITE'].sum().idxmax() if not df_filtered.empty else 'N/A'
+        'client_top_volume': df_filtered.groupby('EXPEDITEUR')['QUANTITE'].sum().idxmax() if not df_filtered.empty else 'N/A',
+        # 'volume_livre' : df[df['STATUT EXPEDITION'] == 'Livré']['VOLUME COLIS (m³)'].sum()
     }
 
     # --- Graphes Logistique ---
@@ -346,6 +365,11 @@ def generate_logistique_data(filters_tuple):
     df_volume_clients = df_filtered.groupby('EXPEDITEUR')['QUANTITE'].sum().nlargest(10).reset_index()
     logistique_g2 = px.bar(df_volume_clients, x='EXPEDITEUR', y='QUANTITE', title="Top 10 Clients par Volume Expédié")
     
+    #Répartition des statuts d’expédition (Pie chart)
+    # import plotly.express as px
+    # logistique_g2 = px.pie(df, names='STATUT EXPEDITION', title='Répartition des statuts d’expédition')
+
+
     df_volume_mensuel = df_filtered.set_index('DATE DU TRANSFERT').resample('ME')['QUANTITE'].sum().reset_index()
     df_volume_mensuel['Mois'] = df_volume_mensuel['DATE DU TRANSFERT'].dt.strftime('%Y-%m')
     logistique_g3 = px.line(df_volume_mensuel, x='Mois', y='QUANTITE', title="Évolution Mensuelle des Volumes Expédiés")
@@ -452,10 +476,24 @@ def generate_tournees_data(filters_tuple):
     }
 
 
+@cache.memoize()
+def generate_alertes_data(filters_tuple):
+    filters_dict = dict(filters_tuple)
+    df_filtered = filter_df(df, filters_dict)
+    col_class = 'CLASSE_COLIS' if 'CLASSE_COLIS' in df_filtered.columns else 'TYPE COLIS'
+    # ... (Copie ici toute la logique de calcul des KPIs et graphiques de PERFORMANCE)
+    
+    #les graphiques
+    # motif_counts = df[df['RETOUR COLIS'] == 'Oui']['MOTIF RETOUR'].value_counts().reset_index()
+    # motif_counts.columns = ['Motif', 'Nombre']
+
+    # fig_g1 = px.bar(motif_counts, x='Motif', y='Nombre', title='Motifs de retour des colis')
+    # return{
+    #     "alertes_g1":pio.to_html(fig_g1, full_html=False),}
+    
 
 # ===================================================================
 # 5. ROUTES FLASK
-
 # ===================================================================
 @app.route('/')
 def home():
@@ -505,7 +543,8 @@ def dashboard():
         **finance_data,
         **clients_data,
         **logistique_data,
-        **tournees_data
+        **tournees_data,
+      
     )
     
 # La route /prediction reste inchangée
