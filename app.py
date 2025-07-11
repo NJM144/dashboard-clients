@@ -298,12 +298,30 @@ def dashboard():
         fin_g3   = pio.to_html(fig_fin3, full_html=False)
     )
 
-from flask import request, render_template
 
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 import pandas as pd
 import plotly.graph_objects as go
+import numpy as np
+import openrouteservice
 
+def get_route_with_ors(coords_ordered, api_key):
+    client = openrouteservice.Client(key=api_key)
+    
+    # ORS attend (lon, lat)
+    coords = [(lon, lat) for lat, lon in coords_ordered]
+    
+    try:
+        route = client.directions(coords, profile='driving-car', format='geojson')
+        geometry = route['features'][0]['geometry']['coordinates']
+        return [(lat, lon) for lon, lat in geometry]
+    except Exception as e:
+        print("Erreur ORS:", e)
+        return []
+
+app = Flask(__name__)
+
+ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjYzMmE4Y2RiY2YwZTRmODdhMmRjY2NjM2FlN2IzODdlIiwiaCI6Im11cm11cjY0In0="
 app = Flask(__name__)
 
 @app.route("/tournee")
@@ -336,89 +354,9 @@ def carte_livraison():
     map_html = fig.to_html(full_html=False)
     return render_template("tournees.html", map_html=map_html)
 
-from flask import Flask, render_template, request
-import pandas as pd
-import plotly.graph_objects as go
-import numpy as np
-import openrouteservice
 
-def get_route_with_ors(coords_ordered, api_key):
-    client = openrouteservice.Client(key=api_key)
-    
-    # ORS attend (lon, lat)
-    coords = [(lon, lat) for lat, lon in coords_ordered]
-    
-    try:
-        route = client.directions(coords, profile='driving-car', format='geojson')
-        geometry = route['features'][0]['geometry']['coordinates']
-        return [(lat, lon) for lon, lat in geometry]
-    except Exception as e:
-        print("Erreur ORS:", e)
-        return []
 
-app = Flask(__name__)
 
-ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjYzMmE4Y2RiY2YwZTRmODdhMmRjY2NjM2FlN2IzODdlIiwiaCI6Im11cm11cjY0In0="
-
-@app.route("/tourn", methods=["GET", "POST"])
-def tournee():
-    df = pd.read_csv("data/ListeTransfert_geocode (2) (1).csv", sep=";", encoding="utf-8")
-    df = df.dropna(subset=["lat", "lon"])
-    df['DATE DU TRANSFERT'] = pd.to_datetime(df['DATE DU TRANSFERT'])
-    df['jour'] = df['DATE DU TRANSFERT'].dt.date
-    dates = df['jour'].sort_values().unique()
-
-    selected_date = request.form.get("selected_date", str(dates[0]))
-    df_day = df[df['jour'] == pd.to_datetime(selected_date).date()].reset_index(drop=True)
-    coords = df_day[['lat', 'lon']].to_numpy()
-
-    # Nearest neighbor TSP (simple)
-    if len(coords) > 1:
-        visited = [0]
-        while len(visited) < len(coords):
-            last = coords[visited[-1]]
-            rest = [i for i in range(len(coords)) if i not in visited]
-            next_city = rest[np.argmin([np.linalg.norm(last - coords[i]) for i in rest])]
-            visited.append(next_city)
-        coords_ordered = coords[visited]
-    else:
-        coords_ordered = coords
-
-    # Appel ORS pour trajet routier
-    route = get_route_with_ors(coords_ordered.tolist(), ORS_API_KEY)
-
-    # Générer la carte Plotly
-    fig = go.Figure()
-
-    # Points de livraison
-    fig.add_trace(go.Scattermapbox(
-        lat=[lat for lat, lon in coords_ordered],
-        lon=[lon for lat, lon in coords_ordered],
-        mode='markers+text',
-        text=[f"Étape {i+1}" for i in range(len(coords_ordered))],
-        marker=dict(size=10, color='red'),
-        name="Points de livraison"
-    ))
-
-    # Tracé du trajet ORS
-    if route:
-        fig.add_trace(go.Scattermapbox(
-            lat=[lat for lat, lon in route],
-            lon=[lon for lat, lon in route],
-            mode='lines',
-            line=dict(width=4, color='blue'),
-            name="Trajet routier (ORS)"
-        ))
-
-    fig.update_layout(
-        mapbox_style="open-street-map",
-        mapbox_zoom=11,
-        mapbox_center={"lat": coords_ordered[0][0], "lon": coords_ordered[0][1]},
-        margin={"r":0,"t":0,"l":0,"b":0}
-    )
-
-    map_html = fig.to_html(full_html=False)
-    return render_template("tournee.html", map_html=map_html, dates=dates, selected_date=selected_date)
 
 @app.route("/prediction", methods=["GET", "POST"])
 def prediction():
