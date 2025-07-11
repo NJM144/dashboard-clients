@@ -342,7 +342,7 @@ def rapport_client():
     client_nom = request.form.get('client_nom')
     
     # Filtrage des données
-    df_client = df[df['client'] == client_nom]
+    df_client = df[df['EXPEDITEUR'] == client_nom]
 
     # Exemple de rapport simple (à enrichir)
     nb_envois = df_client.shape[0]
