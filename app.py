@@ -55,7 +55,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from datetime import date as _date
 
-def train_prediction_model(csv_path="data/ListeTransfert_geocode (2) (1).csv"):
+def train_prediction_model(csv_path="data/Transferts_complet.csv"):
     df = pd.read_csv(csv_path, sep=';')
     df['DATE DU TRANSFERT'] = pd.to_datetime(df['DATE DU TRANSFERT'], errors='coerce')
     df['jour'] = df['DATE DU TRANSFERT'].dt.date
@@ -89,7 +89,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from datetime import date as _date
 
-def train_prediction_model(csv_path="data/ListeTransfert_geocode (2) (1).csv"):
+def train_prediction_model(csv_path="data/Transferts_complet.csv"):
     df = pd.read_csv(csv_path, sep=';')
     df['DATE DU TRANSFERT'] = pd.to_datetime(df['DATE DU TRANSFERT'], errors='coerce')
     df['jour'] = df['DATE DU TRANSFERT'].dt.date
@@ -142,8 +142,7 @@ ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjYzMmE4Y2RiY
 def tournee():
     df = pd.read_csv("data/Transferts_complet.csv", sep=";", encoding="utf-8")
     df = df.dropna(subset=["lat", "lon"])
-    df['DATE DU TRANSFERT'] = pd.to_datetime(df['DATE DU TRANSFERT'], format='%d/%m/%Y %H:%M:%S', errors='coerce')
-
+    df['DATE DU TRANSFERT'] = pd.to_datetime(df['DATE DU TRANSFERT'])
     df['jour'] = df['DATE DU TRANSFERT'].dt.date
     dates = df['jour'].sort_values().unique()
 
@@ -388,7 +387,41 @@ def dashboard():
 
 from flask import request, render_template
 
+from flask import Flask, render_template
+import pandas as pd
+import plotly.graph_objects as go
 
+app = Flask(__name__)
+
+@app.route("/")
+def carte_livraison():
+    # Chargement des données
+    df = pd.read_csv("data/Transferts_complet.csv", sep=";", encoding="utf-8")
+    
+    # On garde uniquement les lignes avec coordonnées valides
+    df = df.dropna(subset=["lat", "lon"])
+
+    # Création de la carte Plotly
+    fig = go.Figure()
+
+    fig.add_trace(go.Scattermapbox(
+        lat=df["lat"],
+        lon=df["lon"],
+        mode="markers+text",
+        text=df["REFERENCE"],
+        marker=dict(size=10, color="red"),
+        name="Points de livraison"
+    ))
+
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        mapbox_zoom=11,
+        mapbox_center={"lat": df["lat"].iloc[0], "lon": df["lon"].iloc[0]},
+        margin={"r":0,"t":0,"l":0,"b":0}
+    )
+
+    map_html = fig.to_html(full_html=False)
+    return render_template("tournees.html", map_html=map_html)
 
 @app.route("/prediction", methods=["GET", "POST"])
 def prediction():
@@ -823,6 +856,4 @@ def alertes():
     return render_template("alertes.html")
 
 if __name__ == '__main__':
-    import os
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(debug=True)

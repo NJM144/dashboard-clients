@@ -1,19 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Carte tournée ORS</title>
+    <title>Carte Livraison</title>
 </head>
 <body>
-    <h2>🚚 Tournée du {{ selected_date }}</h2>
-    <form method="post">
-        <label>Date :</label>
-        <select name="selected_date" onchange="this.form.submit()">
-            {% for d in dates %}
-            <option value="{{ d }}" {% if d|string == selected_date %}selected{% endif %}>{{ d }}</option>
-            {% endfor %}
-        </select>
-    </form>
-
+    <h2>🚚 Carte des points de livraison</h2>
     <div>{{ map_html | safe }}</div>
 </body>
 </html>
