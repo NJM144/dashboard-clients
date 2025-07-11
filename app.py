@@ -299,43 +299,9 @@ def dashboard():
         fin_g3   = pio.to_html(fig_fin3, full_html=False)
     )
 
-from flask import request, render_template
 
-from flask import Flask, render_template
-import pandas as pd
-import plotly.graph_objects as go
 
-app = Flask(__name__)
 
-@app.route("/")
-def carte_livraison():
-    # Chargement des données
-    df = pd.read_csv("data/ListeTransfert_geocode (2) (1).csv", sep=";", encoding="utf-8")
-    
-    # On garde uniquement les lignes avec coordonnées valides
-    df = df.dropna(subset=["lat", "lon"])
-
-    # Création de la carte Plotly
-    fig = go.Figure()
-
-    fig.add_trace(go.Scattermapbox(
-        lat=df["lat"],
-        lon=df["lon"],
-        mode="markers+text",
-        text=df["REFERENCE"],
-        marker=dict(size=10, color="red"),
-        name="Points de livraison"
-    ))
-
-    fig.update_layout(
-        mapbox_style="open-street-map",
-        mapbox_zoom=11,
-        mapbox_center={"lat": df["lat"].iloc[0], "lon": df["lon"].iloc[0]},
-        margin={"r":0,"t":0,"l":0,"b":0}
-    )
-
-    map_html = fig.to_html(full_html=False)
-    return render_template("tournees.html", map_html=map_html)
 
 @app.route("/prediction", methods=["GET", "POST"])
 def prediction():
