@@ -140,7 +140,7 @@ ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjYzMmE4Y2RiY
 
 @app.route("/tournee", methods=["GET", "POST"])
 def tournee():
-    df = pd.read_csv("data/Transferts_complet.csv", sep=";", encoding="utf-8")
+    df = pd.read_csv("data/ListeTransfert_geocode (2) (1).csv", sep=";", encoding="utf-8")
     df = df.dropna(subset=["lat", "lon"])
     df['DATE DU TRANSFERT'] = pd.to_datetime(df['DATE DU TRANSFERT'])
     df['jour'] = df['DATE DU TRANSFERT'].dt.date
@@ -396,7 +396,7 @@ app = Flask(__name__)
 @app.route("/")
 def carte_livraison():
     # Chargement des données
-    df = pd.read_csv("data/Transferts_complet.csv", sep=";", encoding="utf-8")
+    df = pd.read_csv("data/ListeTransfert_geocode (2) (1).csv", sep=";", encoding="utf-8")
     
     # On garde uniquement les lignes avec coordonnées valides
     df = df.dropna(subset=["lat", "lon"])
@@ -856,4 +856,7 @@ def alertes():
     return render_template("alertes.html")
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    import os
+    port = int(os.environ.get('PORT', 5000))  # Railway fixe automatiquement ce port
+    app.run(host='0.0.0.0', port=port)
+
