@@ -102,14 +102,19 @@
                             Appliquer les filtres
                             </button>
                             <!-- Bouton de réinitialisation -->
-                            <a href="{{ url_for('dashboard') }}" class="text-white py-2 bg-yellow-500 rounded hover:bg-slate-600 transition text-center">
+                            <a href="{{ url_for('dashboard') }}" class="text-white py-2 bg-slate-500 rounded hover:bg-slate-600 transition text-center">
                             Réinitialiser les filtres
                             </a>
                         </div>
-                        <!-- Bouton de filtre -->
+                        <!-- Bouton retour -->
+                        <div class="mb-6">
+                        <a href="{{ url_for('home') }}" class="inline-flex items-center bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-slate-600">
+                        ⬅️ Retour à l'accueil
+                        </a>
                         
                     </form>
-
+                    
+                   </div>
                     <div class="md:col-span-9 h-full ">
                         {% block content %}{% endblock %}
                     </div>
