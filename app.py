@@ -6,6 +6,7 @@
 import os
 from datetime import date as _date
 from typing import Dict
+import googlemaps  # pip install googlemaps
 
 import pandas as pd
 import plotly.express as px
@@ -341,57 +342,14 @@ def generate_clients_data(filters_tuple):
 # =======================================================================
     # SECTION 4 : LOGISTIQUE & STOCK (fusion de la logique de /logistique)
 # =======================================================================
-    
-@cache.memoize()
-def generate_logistique_data(filters_tuple):
-    filters_dict = dict(filters_tuple)
-    df_filtered = filter_df(df, filters_dict)
-    col_class = 'CLASSE_COLIS' if 'CLASSE_COLIS' in df_filtered.columns else 'TYPE COLIS'
-    
-    # --- KPIs Logistique ---
-    logistique_kpi = {
-        'nb_expeditions': len(df_filtered),
-        'volume_total': int(df_filtered['QUANTITE'].sum()),
-        'nb_types_colis': df_filtered[col_class].nunique(),
-        'type_plus_frequent': df_filtered[col_class].mode()[0] if not df_filtered.empty else 'N/A',
-        'client_top_volume': df_filtered.groupby('EXPEDITEUR')['QUANTITE'].sum().idxmax() if not df_filtered.empty else 'N/A',
-        # 'volume_livre' : df[df['STATUT EXPEDITION'] == 'Livré']['VOLUME COLIS (m³)'].sum()
-    }
-
-    # --- Graphes Logistique ---
-    df_volume_type = df_filtered.groupby(col_class)['QUANTITE'].sum().reset_index()
-    logistique_g1 = px.pie(df_volume_type, names=col_class, values='QUANTITE', title="Répartition du Volume par Type de Colis")
-    
-    df_volume_clients = df_filtered.groupby('EXPEDITEUR')['QUANTITE'].sum().nlargest(10).reset_index()
-    logistique_g2 = px.bar(df_volume_clients, x='EXPEDITEUR', y='QUANTITE', title="Top 10 Clients par Volume Expédié")
-    
-    #Répartition des statuts d’expédition (Pie chart)
-    # import plotly.express as px
-    # logistique_g2 = px.pie(df, names='STATUT EXPEDITION', title='Répartition des statuts d’expédition')
-
-
-    df_volume_mensuel = df_filtered.set_index('DATE DU TRANSFERT').resample('ME')['QUANTITE'].sum().reset_index()
-    df_volume_mensuel['Mois'] = df_volume_mensuel['DATE DU TRANSFERT'].dt.strftime('%Y-%m')
-    logistique_g3 = px.line(df_volume_mensuel, x='Mois', y='QUANTITE', title="Évolution Mensuelle des Volumes Expédiés")
-    return{
-        "logistique_kpi":logistique_kpi,
-        "logistique_g1":pio.to_html(logistique_g1, full_html=False),
-        "logistique_g2":pio.to_html(logistique_g2, full_html=False),
-        "logistique_g3":pio.to_html(logistique_g3, full_html=False),
-        
-    }
-
-# =======================================================================
-    # SECTION 5 : OPTIMISATION DES TOURNEES
-# =======================================================================
-@cache.memoize()
+ @cache.memoize()
 def generate_tournees_data(filters_tuple):
     filters_dict = dict(filters_tuple)
     df_filtered = filter_df(df, filters_dict)
     col_class = 'CLASSE_COLIS' if 'CLASSE_COLIS' in df_filtered.columns else 'TYPE COLIS'
-    
+
     # --- Carte de toutes les livraisons (selon les filtres) ---
-    df_map_filtered = filter_df(df_geo, request.form) # On utilise le df géocodé
+    df_map_filtered = filter_df(df_geo, request.form)  # On utilise le df géocodé
     df_map_filtered = df_map_filtered.dropna(subset=['lat', 'lon'])
 
     fig_map = px.scatter_mapbox(
@@ -400,16 +358,15 @@ def generate_tournees_data(filters_tuple):
         lon='lon',
         hover_name='EXPEDITEUR',
         hover_data={'ADRESSES': True, 'DATE DU TRANSFERT': True, 'TYPE COLIS': True},
-        color=col_class, # col_class a été défini au début de la fonction
+        color=col_class,
         zoom=4,
         height=600,
         title="Carte interactive des livraisons filtrées"
     )
-    fig_map.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":40,"l":0,"b":0})
+    fig_map.update_layout(mapbox_style="open-street-map", margin={"r": 0, "t": 40, "l": 0, "b": 0})
     tournees_map = pio.to_html(fig_map, full_html=False)
 
     # --- Itinéraire optimisé pour une date spécifique ---
-    # On utilise la date du filtre 'date_specifique'. Sinon, on prend la date la plus fréquente.
     selected_date_str = request.form.get("date_specifique")
     df_geo_valid = df_geo.dropna(subset=['lat', 'lon', 'DATE DU TRANSFERT'])
     df_geo_valid['DATE'] = df_geo_valid['DATE DU TRANSFERT'].dt.date
@@ -425,35 +382,49 @@ def generate_tournees_data(filters_tuple):
     if target_date:
         df_day = df_geo_valid[df_geo_valid['DATE'] == target_date].copy()
 
-        # Fonction de calcul d'itinéraire (la même que tu avais)
-        def compute_naive_route(df_route_calc):
-            from geopy.distance import geodesic
-            if df_route_calc.empty:
-                return pd.DataFrame()
-            
-            visited = []
-            remaining = df_route_calc.copy()
-            current = remaining.iloc[0]
-            visited.append(current)
-            remaining = remaining.drop(current.name)
-            
-            while not remaining.empty:
-                current_point = (current['lat'], current['lon'])
-                distances = remaining.apply(lambda row: geodesic(current_point, (row['lat'], row['lon'])).km, axis=1)
-                next_index = distances.idxmin()
-                current = remaining.loc[next_index]
-                visited.append(current)
-                remaining = remaining.drop(next_index)
-            return pd.DataFrame(visited)
+        # --- Fonction d'optimisation Google Directions ---
+        gmaps = googlemaps.Client(key="AIzaSyBGlGZg7QgWNMaK9E901QUV7lp4srXO25A")  # ⚠️ REMPLACE par ta clé API
 
-        df_route = compute_naive_route(df_day)
+        def compute_google_route(df_route_calc):
+            if df_route_calc.empty or len(df_route_calc) < 2:
+                return pd.DataFrame()
+
+            origin = f"{df_route_calc.iloc[0]['lat']},{df_route_calc.iloc[0]['lon']}"
+            waypoints = df_route_calc.iloc[1:].apply(lambda row: f"{row['lat']},{row['lon']}", axis=1).tolist()
+
+            try:
+                directions_result = gmaps.directions(
+                    origin=origin,
+                    destination=origin,  # boucle fermée
+                    waypoints=waypoints,
+                    optimize_waypoints=True,
+                    mode="driving"
+                )
+            except Exception as e:
+                print("❌ Erreur API Google Directions :", e)
+                return pd.DataFrame()
+
+            if not directions_result:
+                return pd.DataFrame()
+
+            # Ordre optimisé
+            waypoint_order = directions_result[0]['waypoint_order']
+
+            # Reconstruction de l’itinéraire : point de départ + tri
+            ordered_df = pd.concat([
+                df_route_calc.iloc[[0]],
+                df_route_calc.iloc[1:].iloc[waypoint_order]
+            ]).reset_index(drop=True)
+
+            ordered_df['Ordre'] = range(1, len(ordered_df) + 1)
+            return ordered_df
+
+        # 🔁 Utilise la nouvelle fonction Google
+        df_route = compute_google_route(df_day)
 
         if not df_route.empty:
-            # Ajout d'un numéro pour l'ordre de passage
-            df_route['Ordre'] = range(1, len(df_route) + 1)
-            
             fig_route = px.line_mapbox(
-                df_route.sort_values('Ordre'),  # ✅ assure l'ordre
+                df_route.sort_values('Ordre'),
                 lat='lat',
                 lon='lon',
                 text='Ordre',
@@ -464,15 +435,15 @@ def generate_tournees_data(filters_tuple):
                 height=600,
                 title=f"Itinéraire optimisé pour {date_title}"
             )
-
             fig_route.update_traces(textposition="top right", textfont=dict(color="black", size=12))
-            fig_route.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":40,"l":0,"b":0})
+            fig_route.update_layout(mapbox_style="open-street-map", margin={"r": 0, "t": 40, "l": 0, "b": 0})
             tournees_route = pio.to_html(fig_route, full_html=False)
         else:
             tournees_route = f"<p class='text-center text-gray-500 mt-8'>Aucune donnée géolocalisée trouvée pour {date_title}.</p>"
-    return{
-        "tournees_map":tournees_map,
-        "tournees_route":tournees_route
+
+    return {
+        "tournees_map": tournees_map,
+        "tournees_route": tournees_route
     }
 
 
