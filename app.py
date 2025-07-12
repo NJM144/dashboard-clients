@@ -23,6 +23,7 @@ import folium
 import googlemaps
 from folium.plugins import MarkerCluster
 
+
 app = Flask(__name__)
 
 # Configuration du cache
@@ -391,7 +392,7 @@ def generate_logistique_data(filters_tuple):
 @app.route("/tournees", methods=["GET", "POST"])
 def tournees():
     result = generate_tournees_data(tuple(request.form.items()))
-    return render_template("tournees_google.html", **result, google_maps_api_key=os.getenv("AIzaSyBGlGZg7QgWNMaK9E901QUV7lp4srXO25A"))
+    return render_template("tournees_google.html", **result, google_maps_api_key=os.getenv(key="AIzaSyBGlGZg7QgWNMaK9E901QUV7lp4srXO25A"))
 
 
 
@@ -432,7 +433,7 @@ def generate_tournees_data(filters_tuple):
     if target_date:
         df_day = df_map_filtered.copy()
         if not df_day.empty:
-            gmaps = googlemaps.Client(key=os.getenv("AIzaSyBGlGZg7QgWNMaK9E901QUV7lp4srXO25A"))
+            gmaps = googlemaps.Client(key=os.getenv(key="AIzaSyBGlGZg7QgWNMaK9E901QUV7lp4srXO25A"))
 
             def compute_google_route(df_route_calc):
                 if df_route_calc.empty or len(df_route_calc) < 2:
