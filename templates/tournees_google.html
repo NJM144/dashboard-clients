@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Carte Google Maps</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}"></script>
+</head>
+<body onload="initMap()">
+
+<h2 style="text-align:center;">Carte des livraisons {{ date_str if date_str else '' }}</h2>
+<div id="map" style="height: 600px; width: 100%;"></div>
+
+<script>
+    const markers = {{ markers_json | safe }};
+    const itinerary = {{ itinerary_json | safe }};
+
+    function initMap() {
+        if (!markers.length) {
+            document.getElementById("map").innerHTML = "<p style='text-align:center;'>Aucune livraison à afficher.</p>";
+            return;
+        }
+
+        const map = new google.maps.Map(document.getElementById("map"), {
+            zoom: 12,
+            center: { lat: markers[0].lat, lng: markers[0].lon }
+        });
+
+        // Marqueurs
+        markers.forEach((point, i) => {
+            const marker = new google.maps.Marker({
+                position: { lat: point.lat, lng: point.lon },
+                map,
+                label: `${i + 1}`,
+                title: `${point.expediteur} - ${point.type_colis}`
+            });
+
+            const infowindow = new google.maps.InfoWindow({
+                content: `<b>${point.expediteur}</b><br>${point.adresse}<br>${point.date}<br>Type: ${point.type_colis}`
+            });
+
+            marker.addListener("click", () => {
+                infowindow.open(map, marker);
+            });
+        });
+
+        // Tracé de l'itinéraire optimisé
+        if (itinerary.length > 1) {
+            const path = itinerary.map(p => new google.maps.LatLng(p.lat, p.lon));
+            const routePath = new google.maps.Polyline({
+                path: path,
+                geodesic: true,
+                strokeColor: "#FF0000",
+                strokeOpacity: 0.8,
+                strokeWeight: 4
+            });
+            routePath.setMap(map);
+        }
+    }
+</script>
+
+</body>
+</html>

@@ -388,8 +388,15 @@ def generate_logistique_data(filters_tuple):
     }
 
 
+@app.route("/tournees", methods=["GET", "POST"])
+def tournees():
+    result = generate_tournees_data(tuple(request.form.items()))
+    return render_template("tournees_google.html", **result, google_maps_api_key=os.getenv("AIzaSyBGlGZg7QgWNMaK9E901QUV7lp4srXO25A"))
 
 
+
+import json
+import googlemaps
 
 @cache.memoize()
 def generate_tournees_data(filters_tuple):
@@ -397,7 +404,7 @@ def generate_tournees_data(filters_tuple):
     df_filtered = filter_df(df, filters_dict)
     col_class = 'CLASSE_COLIS' if 'CLASSE_COLIS' in df_filtered.columns else 'TYPE COLIS'
 
-    # Récupérer la date sélectionnée
+    # 1. Récupération et filtrage
     selected_date_str = request.form.get("date_specifique")
     df_map_filtered = filter_df(df_geo, request.form).dropna(subset=['lat', 'lon'])
 
@@ -408,96 +415,68 @@ def generate_tournees_data(filters_tuple):
     else:
         target_date = None
 
-    # Carte Folium interactive
-    if df_map_filtered.empty:
-        tournees_map = "<p class='text-center text-gray-500 mt-8'>Aucune livraison à afficher sur la carte.</p>"
-    else:
-        center_lat = df_map_filtered['lat'].mean()
-        center_lon = df_map_filtered['lon'].mean()
-        m = folium.Map(location=[center_lat, center_lon], zoom_start=11)
-        marker_cluster = MarkerCluster().add_to(m)
+    # 2. Préparer les marqueurs à envoyer au template
+    markers = []
+    for _, row in df_map_filtered.iterrows():
+        markers.append({
+            "lat": row['lat'],
+            "lon": row['lon'],
+            "expediteur": row['EXPEDITEUR'],
+            "adresse": row['ADRESSES'],
+            "date": row['DATE DU TRANSFERT'].strftime('%d/%m/%Y'),
+            "type_colis": row.get(col_class, "N/A")
+        })
 
-        for _, row in df_map_filtered.iterrows():
-            popup = f"<b>{row['EXPEDITEUR']}</b><br>{row['ADRESSES']}<br>{row['DATE DU TRANSFERT'].strftime('%d/%m/%Y')}<br>Type: {row.get(col_class, 'N/A')}"
-            folium.Marker(
-                location=[row['lat'], row['lon']],
-                popup=popup,
-                tooltip=row['EXPEDITEUR']
-            ).add_to(marker_cluster)
-
-        tournees_map = m._repr_html_()
-
-    # --- Itinéraire optimisé ---
-    df_geo_valid = df_geo.dropna(subset=['lat', 'lon', 'DATE DU TRANSFERT'])
-    df_geo_valid['DATE'] = df_geo_valid['DATE DU TRANSFERT'].dt.date
-    date_title = f"le {target_date.strftime('%d/%m/%Y')}" if target_date else "la date la plus fréquente"
-
-    tournees_route = "<p class='text-center text-gray-500 mt-8'>Veuillez sélectionner une date spécifique pour calculer un itinéraire optimisé.</p>"
-
+    # 3. Préparer l'itinéraire optimisé s'il y a une date
+    itinerary = []
     if target_date:
-        df_day = df_geo_valid[df_geo_valid['DATE'] == target_date].copy()
+        df_day = df_map_filtered.copy()
+        if not df_day.empty:
+            gmaps = googlemaps.Client(key=os.getenv("GOOGLE_MAPS_API_KEY"))
 
-        gmaps = googlemaps.Client(key=os.getenv("GOOGLE_MAPS_API_KEY"))
+            def compute_google_route(df_route_calc):
+                if df_route_calc.empty or len(df_route_calc) < 2:
+                    return []
 
-        def compute_google_route(df_route_calc):
-            if df_route_calc.empty or len(df_route_calc) < 2:
-                return pd.DataFrame()
+                origin = f"{df_route_calc.iloc[0]['lat']},{df_route_calc.iloc[0]['lon']}"
+                waypoints = df_route_calc.iloc[1:].apply(lambda row: f"{row['lat']},{row['lon']}", axis=1).tolist()
 
-            origin = f"{df_route_calc.iloc[0]['lat']},{df_route_calc.iloc[0]['lon']}"
-            waypoints = df_route_calc.iloc[1:].apply(lambda row: f"{row['lat']},{row['lon']}", axis=1).tolist()
+                try:
+                    directions_result = gmaps.directions(
+                        origin=origin,
+                        destination=origin,
+                        waypoints=waypoints,
+                        optimize_waypoints=True,
+                        mode="driving"
+                    )
+                except Exception as e:
+                    print("❌ Erreur API Directions :", e)
+                    return []
 
-            try:
-                directions_result = gmaps.directions(
-                    origin=origin,
-                    destination=origin,
-                    waypoints=waypoints,
-                    optimize_waypoints=True,
-                    mode="driving"
-                )
-            except Exception as e:
-                print("❌ Erreur API Google Directions :", e)
-                return pd.DataFrame()
+                if not directions_result:
+                    return []
 
-            if not directions_result:
-                return pd.DataFrame()
+                steps = directions_result[0]['legs'][0]['steps']
+                route_coords = []
+                for step in steps:
+                    route_coords.append({
+                        "lat": step['start_location']['lat'],
+                        "lon": step['start_location']['lng']
+                    })
+                route_coords.append({
+                    "lat": steps[-1]['end_location']['lat'],
+                    "lon": steps[-1]['end_location']['lng']
+                })
+                return route_coords
 
-            waypoint_order = directions_result[0]['waypoint_order']
-            ordered_df = pd.concat([
-                df_route_calc.iloc[[0]],
-                df_route_calc.iloc[1:].iloc[waypoint_order]
-            ]).reset_index(drop=True)
-            ordered_df['Ordre'] = range(1, len(ordered_df) + 1)
-            return ordered_df, directions_result[0]
-
-        df_route, directions_info = compute_google_route(df_day)
-
-        if not df_route.empty:
-            # Construction de la carte avec itinéraire
-            route_map = folium.Map(location=[df_route['lat'].mean(), df_route['lon'].mean()], zoom_start=12)
-
-            for _, row in df_route.iterrows():
-                folium.Marker(
-                    location=[row['lat'], row['lon']],
-                    tooltip=f"{row['Ordre']} - {row['EXPEDITEUR']}",
-                    popup=row['ADRESSES']
-                ).add_to(route_map)
-
-            # Tracé de la polyline à partir des steps
-            steps = directions_info['legs'][0]['steps']
-            path = [(step['start_location']['lat'], step['start_location']['lng']) for step in steps]
-            path.append((steps[-1]['end_location']['lat'], steps[-1]['end_location']['lng']))
-
-            folium.PolyLine(path, color="red", weight=4, opacity=0.7).add_to(route_map)
-
-            tournees_route = route_map._repr_html_()
-        else:
-            tournees_route = f"<p class='text-center text-gray-500 mt-8'>Aucune donnée géolocalisée trouvée pour {date_title}.</p>"
+            itinerary = compute_google_route(df_day)
 
     return {
-        "tournees_map": tournees_map,
-        "tournees_route": tournees_route
+        "markers_json": json.dumps(markers),
+        "itinerary_json": json.dumps(itinerary),
+        "has_data": len(markers) > 0,
+        "date_str": target_date.strftime('%d/%m/%Y') if target_date else None
     }
-
 
 
 
