@@ -406,7 +406,9 @@ import pandas as pd
 app = Flask(__name__)
 
 # Chargement du fichier de livraison (à adapter)
-df_livraisons = pd.read_csv("data/ListeTransfert_geocode (2) (1).csv", parse_dates=["date"])
+df_livraisons = pd.read_csv("data/ListeTransfert_geocode (2) (1).csv", parse_dates=["DATE DU TRANSFERT"])
+df_livraisons.rename(columns={"DATE DU TRANSFERT": "date"}, inplace=True)  # pour standardiser
+
 
 @app.route('/tournees')
 def tournees():
