@@ -342,6 +342,51 @@ def generate_clients_data(filters_tuple):
 # =======================================================================
     # SECTION 4 : LOGISTIQUE & STOCK (fusion de la logique de /logistique)
 # =======================================================================
+
+
+@cache.memoize()
+def generate_logistique_data(filters_tuple):
+    filters_dict = dict(filters_tuple)
+    df_filtered = filter_df(df, filters_dict)
+    col_class = 'CLASSE_COLIS' if 'CLASSE_COLIS' in df_filtered.columns else 'TYPE COLIS'
+    
+    # --- KPIs Logistique ---
+    logistique_kpi = {
+        'nb_expeditions': len(df_filtered),
+        'volume_total': int(df_filtered['QUANTITE'].sum()),
+        'nb_types_colis': df_filtered[col_class].nunique(),
+        'type_plus_frequent': df_filtered[col_class].mode()[0] if not df_filtered.empty else 'N/A',
+        'client_top_volume': df_filtered.groupby('EXPEDITEUR')['QUANTITE'].sum().idxmax() if not df_filtered.empty else 'N/A',
+        # 'volume_livre' : df[df['STATUT EXPEDITION'] == 'Livré']['VOLUME COLIS (m³)'].sum()
+    }
+
+    # --- Graphes Logistique ---
+    df_volume_type = df_filtered.groupby(col_class)['QUANTITE'].sum().reset_index()
+    logistique_g1 = px.pie(df_volume_type, names=col_class, values='QUANTITE', title="Répartition du Volume par Type de Colis")
+    
+    df_volume_clients = df_filtered.groupby('EXPEDITEUR')['QUANTITE'].sum().nlargest(10).reset_index()
+    logistique_g2 = px.bar(df_volume_clients, x='EXPEDITEUR', y='QUANTITE', title="Top 10 Clients par Volume Expédié")
+    
+    #Répartition des statuts d’expédition (Pie chart)
+    # import plotly.express as px
+    # logistique_g2 = px.pie(df, names='STATUT EXPEDITION', title='Répartition des statuts d’expédition')
+    df_volume_mensuel = df_filtered.set_index('DATE DU TRANSFERT').resample('ME')['QUANTITE'].sum().reset_index()
+    df_volume_mensuel['Mois'] = df_volume_mensuel['DATE DU TRANSFERT'].dt.strftime('%Y-%m')
+    logistique_g3 = px.line(df_volume_mensuel, x='Mois', y='QUANTITE', title="Évolution Mensuelle des Volumes Expédiés")
+    return{
+        "logistique_kpi":logistique_kpi,
+        "logistique_g1":pio.to_html(logistique_g1, full_html=False),
+        "logistique_g2":pio.to_html(logistique_g2, full_html=False),
+        "logistique_g3":pio.to_html(logistique_g3, full_html=False),
+        
+    }
+
+
+
+
+
+
+
 @cache.memoize()
 def generate_tournees_data(filters_tuple):
     filters_dict = dict(filters_tuple)
