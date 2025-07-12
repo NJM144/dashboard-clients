@@ -179,20 +179,28 @@
 </div>
 
 <div x-show="main_tab === 'tournees'" x-transition class="space-y-6">
-    <div class="bg-white p-4 rounded-xl shadow">
-        <h2 class="text-lg font-semibold text-center mb-2">Carte des livraisons</h2>
-        <p class="text-sm text-gray-500 text-center mb-4">Affiche toutes les livraisons correspondant aux filtres. Zoomez pour voir les détails.</p>
-        {{ tournees_map|safe }}
-    </div>
     
-    <div class="bg-white p-4 rounded-xl shadow">
-        <h2 class="text-lg font-semibold text-center mb-2">Optimisation de la tournée</h2>
+    <!-- Carte des livraisons -->
+    <div class="bg-white p-6 rounded-xl shadow-md">
+        <h2 class="text-xl font-semibold text-center mb-2">Carte des livraisons</h2>
         <p class="text-sm text-gray-500 text-center mb-4">
-            Utilisez le filtre "Date spécifique" pour calculer l'itinéraire optimisé (ordre de passage le plus court) pour un jour donné.
+            Affiche toutes les livraisons correspondant aux filtres appliqués. Zoomez ou cliquez pour voir les détails.
         </p>
-        {{ tournees_route|safe }}
+        <div class="overflow-hidden rounded-lg border border-gray-200">
+            {{ tournees_map | safe }}
+        </div>
     </div>
-</div>
+
+    <!-- Itinéraire optimisé -->
+    <div class="bg-white p-6 rounded-xl shadow-md">
+        <h2 class="text-xl font-semibold text-center mb-2">Optimisation de la tournée</h2>
+        <p class="text-sm text-gray-500 text-center mb-4">
+            Sélectionnez une <strong>date spécifique</strong> pour générer un itinéraire optimisé (ordre de passage le plus court).
+        </p>
+        <div class="overflow-hidden rounded-lg border border-gray-200">
+            {{ tournees_route | safe }}
+        </div>
+    </div>
 
 
 
