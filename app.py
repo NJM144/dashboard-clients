@@ -407,24 +407,24 @@ app = Flask(__name__)
 import pandas as pd
 
 # Chargement du fichier CSV avec le bon séparateur
-df_livraisons = pd.read_csv("data/ListeTransfert_geocode (2) (1).csv", parse_dates=["DATE"], sep=';')
+df = pd.read_csv("data/Transferts_classes.csv", sep=';')
+df["DATE DU TRANSFERT"] = pd.to_datetime(df["DATE DU TRANSFERT"], format="%d/%m/%Y %H:%M", errors="coerce")
+df_livraison=df
 
-# Vérifie les noms de colonnes
-print("🧩 Colonnes disponibles :", df_livraisons.columns.tolist())
 
 # Renommer proprement les colonnes (optionnel)
-df_livraisons.columns = df_livraisons.columns.str.strip()  # supprime les espaces autour
-df_livraisons.rename(columns={'DATE DU TRANSFERT': 'date'}, inplace=True)
+df.columns = df.columns.str.strip()  # supprime les espaces autour
+df.rename(columns={'DATE DU TRANSFERT': 'date'}, inplace=True)
 
 # Convertir la colonne date
-df_livraisons['date'] = pd.to_datetime(df_livraisons['date'], errors='coerce')
+df['date'] = pd.to_datetime(df['date'], errors='coerce')
 
 # Affiche un aperçu
-print(df_livraisons[['date', 'lat', 'lon']].head())
+print(df[['date', 'lat', 'lon']].head())
 
 # Chargement du fichier de livraison (à adapter)
 
-df_livraisons.rename(columns={"DATE": "date"}, inplace=True)  # pour standardiser
+df.rename(columns={"DATE": "date"}, inplace=True)  # pour standardiser
 
 
 @app.route('/tournees')
@@ -436,7 +436,7 @@ def tournees():
     type_colis = request.args.get('type_colis')
 
     # Filtrage
-    df = df_livraisons.copy()
+    df = df.copy()
     if annee and annee != "Tous":
         df = df[df['date'].dt.year == int(annee)]
     if mois and mois != "Tous":
