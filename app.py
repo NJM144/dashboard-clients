@@ -391,10 +391,7 @@ def generate_logistique_data(filters_tuple):
     }
 
 
-@app.route("/tournees", methods=["GET", "POST"])
-def tournees():
-    result = generate_tournees_data(tuple(request.form.items()))
-    return render_template("tournees_google.html", **result, google_maps_api_key=os.getenv("GOOGLE_MAPS_API_KEY"))
+
 
 
 
