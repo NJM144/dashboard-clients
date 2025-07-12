@@ -1,18 +1,40 @@
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBGlGZg7QgWNMaK9E901QUV7lp4srXO25A"></script>
-<div id="map" style="height: 500px; width: 100%;"></div>
-<script>
-  function initMap() {
-    const map = new google.maps.Map(document.getElementById("map"), {
-      zoom: 10,
-      center: { lat: 5.348, lng: -4.027 }  // exemple : Abidjan
-    });
 
-    const marker = new google.maps.Marker({
-      position: { lat: 5.348, lng: -4.027 },
-      map: map,
-      title: "Livraison test"
-    });
-  }
 
   window.onload = initMap;
 </script>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Carte Google Maps</title>
+    <style>
+        #map {
+            height: 600px;
+            width: 100%;
+        }
+    </style>
+    <!-- Remplace TA_CLE_API_ICI par ta vraie clé -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBGlGZg7QgWNMaK9E901QUV7lp4srXO25A"></script>
+</head>
+<body onload="initMap()">
+    <h2 style="text-align: center;">Carte Google Maps — Exemple</h2>
+    <div id="map"></div>
+
+    <script>
+        function initMap() {
+            const position = { lat: 48.8566, lng: 2.3522 };  // Paris
+
+            const map = new google.maps.Map(document.getElementById("map"), {
+                zoom: 12,
+                center: position
+            });
+
+            new google.maps.Marker({
+                position: position,
+                map: map,
+                title: "Point de test — Paris"
+            });
+        }
+    </script>
+</body>
+</html>
