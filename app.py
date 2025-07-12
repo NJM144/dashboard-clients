@@ -398,91 +398,39 @@ def tournees():
 
 
 
-import json
-import googlemaps
-
-@cache.memoize()
-def generate_tournees_data(filters_tuple):
-    filters_dict = dict(filters_tuple)
-    df_filtered = filter_df(df, filters_dict)
-    col_class = 'CLASSE_COLIS' if 'CLASSE_COLIS' in df_filtered.columns else 'TYPE COLIS'
-
-    # 1. Récupération et filtrage
-    selected_date_str = request.form.get("date_specifique")
-    df_map_filtered = filter_df(df_geo, request.form).dropna(subset=['lat', 'lon'])
-
-    if selected_date_str:
-        target_date = pd.to_datetime(selected_date_str).date()
-        df_map_filtered['DATE'] = df_map_filtered['DATE DU TRANSFERT'].dt.date
-        df_map_filtered = df_map_filtered[df_map_filtered['DATE'] == target_date]
-    else:
-        target_date = None
-
-    # 2. Préparer les marqueurs à envoyer au template
-    markers = []
-    for _, row in df_map_filtered.iterrows():
-        markers.append({
-            "lat": row['lat'],
-            "lon": row['lon'],
-            "expediteur": row['EXPEDITEUR'],
-            "adresse": row['ADRESSES'],
-            "date": row['DATE DU TRANSFERT'].strftime('%d/%m/%Y'),
-            "type_colis": row.get(col_class, "N/A")
-        })
-
-    # 3. Préparer l'itinéraire optimisé s'il y a une date
-    itinerary = []
-    if target_date:
-        df_day = df_map_filtered.copy()
-        if not df_day.empty:
-            gmaps = googlemaps.Client(key=os.getenv("GOOGLE_MAPS_API_KEY"))
-
-            def compute_google_route(df_route_calc):
-                if df_route_calc.empty or len(df_route_calc) < 2:
-                    return []
-
-                origin = f"{df_route_calc.iloc[0]['lat']},{df_route_calc.iloc[0]['lon']}"
-                waypoints = df_route_calc.iloc[1:].apply(lambda row: f"{row['lat']},{row['lon']}", axis=1).tolist()
-
-                try:
-                    directions_result = gmaps.directions(
-                        origin=origin,
-                        destination=origin,
-                        waypoints=waypoints,
-                        optimize_waypoints=True,
-                        mode="driving"
-                    )
-                except Exception as e:
-                    print("❌ Erreur API Directions :", e)
-                    return []
-
-                if not directions_result:
-                    return []
-
-                steps = directions_result[0]['legs'][0]['steps']
-                route_coords = []
-                for step in steps:
-                    route_coords.append({
-                        "lat": step['start_location']['lat'],
-                        "lon": step['start_location']['lng']
-                    })
-                route_coords.append({
-                    "lat": steps[-1]['end_location']['lat'],
-                    "lon": steps[-1]['end_location']['lng']
-                })
-                return route_coords
-
-            itinerary = compute_google_route(df_day)
-
-    return {
-        "markers_json": json.dumps(markers),
-        "itinerary_json": json.dumps(itinerary),
-        "has_data": len(markers) > 0,
-        "date_str": target_date.strftime('%d/%m/%Y') if target_date else None
-    }
 
 
+from flask import Flask, render_template, request
+import pandas as pd
 
+app = Flask(__name__)
+
+# Chargement du fichier de livraison (à adapter)
+df_livraisons = pd.read_csv("data/livraisons.csv", parse_dates=["date"])
+
+@app.route('/tournees')
+def tournees():
+    # Récupère les filtres depuis l’URL (GET)
+    annee = request.args.get('annee')
+    mois = request.args.get('mois')
+    client = request.args.get('client')
+    type_colis = request.args.get('type_colis')
+
+    # Filtrage
+    df = df_livraisons.copy()
+    if annee and annee != "Tous":
+        df = df[df['date'].dt.year == int(annee)]
+    if mois and mois != "Tous":
+        df = df[df['date'].dt.month == int(mois)]
+    if client and client != "Tous":
+        df = df[df['client'] == client]
+    if type_colis and type_colis != "Tous":
+        df = df[df['type_colis'] == type_colis]
+
+    # Prépare les points pour Leaflet
+    points = df[['latitude', 'longitude', 'client', 'type_colis', 'date']].dropna().to_dict(orient='records')
+
+    return render_template("tournees_google.html", points=points)
 
 
 
