@@ -423,14 +423,34 @@ df.rename(columns={"DATE DU TRANSFERT": "date"}, inplace=True)  # pour standardi
 
 @app.route('/tournees')
 def tournees():
-    # Récupère les filtres depuis l’URL (GET)
+    # Chargement du DataFrame
+    df = pd.read_csv("data/ListeTransfert_geocode (2) (1).csv", sep=';', encoding='utf-8', engine='python')
+
+    # Nettoyage des noms de colonnes
+    df.columns = df.columns.str.strip().str.lower()
+
+    # Renommage si besoin
+    df = df.rename(columns={
+        'date du transfert': 'date',
+        'lat': 'latitude',
+        'lon': 'longitude'
+    })
+
+    # Vérifie que les colonnes nécessaires sont bien là
+    for col in ['date', 'client', 'type_colis', 'latitude', 'longitude']:
+        if col not in df.columns:
+            return f"⚠️ Colonne manquante : {col}", 500
+
+    # Conversion de la colonne 'date'
+    df['date'] = pd.to_datetime(df['date'], errors='coerce')
+
+    # Filtres GET
     annee = request.args.get('annee')
     mois = request.args.get('mois')
     client = request.args.get('client')
     type_colis = request.args.get('type_colis')
 
-    # Filtrage
-    df = df.copy()
+    # Application des filtres
     if annee and annee != "Tous":
         df = df[df['date'].dt.year == int(annee)]
     if mois and mois != "Tous":
@@ -440,10 +460,11 @@ def tournees():
     if type_colis and type_colis != "Tous":
         df = df[df['type_colis'] == type_colis]
 
-    # Prépare les points pour Leaflet
+    # Prépare les points à afficher
     points = df[['latitude', 'longitude', 'client', 'type_colis', 'date']].dropna().to_dict(orient='records')
 
     return render_template("tournees_google.html", points=points)
+
 
 
 
