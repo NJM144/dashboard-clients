@@ -403,11 +403,11 @@ import pandas as pd
 # Chargement du fichier CSV avec le bon séparateur
 df = pd.read_csv("data/ListeTransfert_geocode (2).csv", sep=';')
 df["DATE DU TRANSFERT"] = pd.to_datetime(df["DATE DU TRANSFERT"], format="%d/%m/%Y %H:%M", errors="coerce")
-df_livraison=df
+df.columns = df.columns.str.strip().str.upper()
 
 
-# Renommer proprement les colonnes (optionnel)
-df.columns = df.columns.str.strip()  # supprime les espaces autour
+
+
 df.rename(columns={'DATE DU TRANSFERT': 'date'}, inplace=True)
 
 # Convertir la colonne date
