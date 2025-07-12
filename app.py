@@ -400,10 +400,7 @@ def tournees():
 
 
 
-from flask import Flask, render_template, request
-import pandas as pd
 
-app = Flask(__name__)
 import pandas as pd
 
 # Chargement du fichier CSV avec le bon séparateur
