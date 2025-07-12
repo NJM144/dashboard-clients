@@ -432,7 +432,7 @@ def generate_tournees_data(filters_tuple):
     if target_date:
         df_day = df_map_filtered.copy()
         if not df_day.empty:
-            gmaps = googlemaps.Client(key=os.getenv("GOOGLE_MAPS_API_KEY"))
+            gmaps = googlemaps.Client(key=os.getenv("AIzaSyBGlGZg7QgWNMaK9E901QUV7lp4srXO25A"))
 
             def compute_google_route(df_route_calc):
                 if df_route_calc.empty or len(df_route_calc) < 2:
