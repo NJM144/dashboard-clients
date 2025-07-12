@@ -407,7 +407,7 @@ app = Flask(__name__)
 import pandas as pd
 
 # Chargement du fichier CSV avec le bon séparateur
-df = pd.read_csv("data/Transferts_classes.csv", sep=';')
+df = pd.read_csv("data/ListeTransfert_geocode (2).csv", sep=';')
 df["DATE DU TRANSFERT"] = pd.to_datetime(df["DATE DU TRANSFERT"], format="%d/%m/%Y %H:%M", errors="coerce")
 df_livraison=df
 
@@ -424,7 +424,7 @@ print(df[['date', 'lat', 'lon']].head())
 
 # Chargement du fichier de livraison (à adapter)
 
-df.rename(columns={"DATE": "date"}, inplace=True)  # pour standardiser
+df.rename(columns={"DATE DU TRANSFERT": "date"}, inplace=True)  # pour standardiser
 
 
 @app.route('/tournees')
