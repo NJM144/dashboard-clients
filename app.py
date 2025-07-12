@@ -16,6 +16,13 @@ from flask_caching import Cache  # 👈 CORRECTION: Import manquant
 from joblib import load
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
+import os
+from dotenv import load_dotenv
+import googlemaps
+import plotly.io as pio
+
+load_dotenv()
+mapbox_token = os.getenv("AIzaSyBGlGZg7QgWNMaK9E901QUV7lp4srXO25A")  # Ton token dans .env
 
 app = Flask(__name__)
 
@@ -383,52 +390,57 @@ def generate_logistique_data(filters_tuple):
 
 
 
-
-
-
-
 @cache.memoize()
 def generate_tournees_data(filters_tuple):
     filters_dict = dict(filters_tuple)
     df_filtered = filter_df(df, filters_dict)
     col_class = 'CLASSE_COLIS' if 'CLASSE_COLIS' in df_filtered.columns else 'TYPE COLIS'
 
-    # --- Carte de toutes les livraisons (selon les filtres) ---
-    df_map_filtered = filter_df(df_geo, request.form)  # On utilise le df géocodé
-    df_map_filtered = df_map_filtered.dropna(subset=['lat', 'lon'])
+    # Récupérer la date sélectionnée
+    selected_date_str = request.form.get("date_specifique")
+    df_map_filtered = filter_df(df_geo, request.form).dropna(subset=['lat', 'lon'])
 
+    # Filtrer par date si sélectionnée
+    if selected_date_str:
+        target_date = pd.to_datetime(selected_date_str).date()
+        df_map_filtered['DATE'] = df_map_filtered['DATE DU TRANSFERT'].dt.date
+        df_map_filtered = df_map_filtered[df_map_filtered['DATE'] == target_date]
+    else:
+        target_date = None
+
+    # Création carte avec Mapbox
     fig_map = px.scatter_mapbox(
         df_map_filtered,
         lat='lat',
         lon='lon',
         hover_name='EXPEDITEUR',
-        hover_data={'ADRESSES': True, 'DATE DU TRANSFERT': True, 'TYPE COLIS': True},
+        hover_data={
+            'ADRESSES': True,
+            'DATE DU TRANSFERT': True,
+            'TYPE COLIS': True if 'TYPE COLIS' in df_map_filtered.columns else False
+        },
         color=col_class,
-        zoom=4,
+        zoom=10,
         height=600,
-        title="Carte interactive des livraisons filtrées"
+        title=f"Livraisons pour le {target_date.strftime('%d/%m/%Y')}" if target_date else "Carte des livraisons"
     )
-    fig_map.update_layout(mapbox_style="open-street-map", margin={"r": 0, "t": 40, "l": 0, "b": 0})
+    fig_map.update_layout(
+        mapbox_style="mapbox://styles/mapbox/streets-v11",
+        mapbox_accesstoken=mapbox_token,
+        margin={"r": 0, "t": 40, "l": 0, "b": 0}
+    )
     tournees_map = pio.to_html(fig_map, full_html=False)
 
-    # --- Itinéraire optimisé pour une date spécifique ---
-    selected_date_str = request.form.get("date_specifique")
+    # --- Itinéraire optimisé ---
     df_geo_valid = df_geo.dropna(subset=['lat', 'lon', 'DATE DU TRANSFERT'])
     df_geo_valid['DATE'] = df_geo_valid['DATE DU TRANSFERT'].dt.date
-
-    if selected_date_str:
-        target_date = pd.to_datetime(selected_date_str).date()
-        date_title = f"le {target_date.strftime('%d/%m/%Y')}"
-    else:
-        target_date = df_geo_valid['DATE'].mode()[0] if not df_geo_valid.empty else None
-        date_title = f"la date la plus fréquente ({target_date.strftime('%d/%m/%Y') if target_date else 'N/A'})"
+    date_title = f"le {target_date.strftime('%d/%m/%Y')}" if target_date else "la date la plus fréquente"
 
     tournees_route = "<p class='text-center text-gray-500 mt-8'>Veuillez sélectionner une date spécifique pour calculer un itinéraire optimisé.</p>"
     if target_date:
         df_day = df_geo_valid[df_geo_valid['DATE'] == target_date].copy()
 
-        # --- Fonction d'optimisation Google Directions ---
-        gmaps = googlemaps.Client(key="AIzaSyBGlGZg7QgWNMaK9E901QUV7lp4srXO25A")  # ⚠️ REMPLACE par ta clé API
+        gmaps = googlemaps.Client(key=os.getenv("GOOGLE_MAPS_API_KEY"))  # ⚠️ À mettre aussi dans .env
 
         def compute_google_route(df_route_calc):
             if df_route_calc.empty or len(df_route_calc) < 2:
@@ -440,7 +452,7 @@ def generate_tournees_data(filters_tuple):
             try:
                 directions_result = gmaps.directions(
                     origin=origin,
-                    destination=origin,  # boucle fermée
+                    destination=origin,
                     waypoints=waypoints,
                     optimize_waypoints=True,
                     mode="driving"
@@ -452,19 +464,14 @@ def generate_tournees_data(filters_tuple):
             if not directions_result:
                 return pd.DataFrame()
 
-            # Ordre optimisé
             waypoint_order = directions_result[0]['waypoint_order']
-
-            # Reconstruction de l’itinéraire : point de départ + tri
             ordered_df = pd.concat([
                 df_route_calc.iloc[[0]],
                 df_route_calc.iloc[1:].iloc[waypoint_order]
             ]).reset_index(drop=True)
-
             ordered_df['Ordre'] = range(1, len(ordered_df) + 1)
             return ordered_df
 
-        # 🔁 Utilise la nouvelle fonction Google
         df_route = compute_google_route(df_day)
 
         if not df_route.empty:
@@ -476,12 +483,16 @@ def generate_tournees_data(filters_tuple):
                 hover_name='EXPEDITEUR',
                 hover_data={'ADRESSES': True, 'Ordre': True},
                 color_discrete_sequence=["#facc15"],
-                zoom=8,
+                zoom=10,
                 height=600,
                 title=f"Itinéraire optimisé pour {date_title}"
             )
             fig_route.update_traces(textposition="top right", textfont=dict(color="black", size=12))
-            fig_route.update_layout(mapbox_style="open-street-map", margin={"r": 0, "t": 40, "l": 0, "b": 0})
+            fig_route.update_layout(
+                mapbox_style="mapbox://styles/mapbox/streets-v11",
+                mapbox_accesstoken=mapbox_token,
+                margin={"r": 0, "t": 40, "l": 0, "b": 0}
+            )
             tournees_route = pio.to_html(fig_route, full_html=False)
         else:
             tournees_route = f"<p class='text-center text-gray-500 mt-8'>Aucune donnée géolocalisée trouvée pour {date_title}.</p>"
@@ -490,6 +501,9 @@ def generate_tournees_data(filters_tuple):
         "tournees_map": tournees_map,
         "tournees_route": tournees_route
     }
+
+
+
 
 
 @cache.memoize()
