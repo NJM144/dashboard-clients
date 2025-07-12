@@ -342,7 +342,7 @@ def generate_clients_data(filters_tuple):
 # =======================================================================
     # SECTION 4 : LOGISTIQUE & STOCK (fusion de la logique de /logistique)
 # =======================================================================
- @cache.memoize()
+@cache.memoize()
 def generate_tournees_data(filters_tuple):
     filters_dict = dict(filters_tuple)
     df_filtered = filter_df(df, filters_dict)
