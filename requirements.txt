@@ -25,3 +25,4 @@ joblib==1.4.2
 geopy==2.4.1
 requests
 polyline
+format_decimal
