@@ -16,8 +16,6 @@ from sklearn.model_selection import train_test_split
 import polyline
 
 
-import locale
-locale.setlocale(locale.LC_ALL, 'fr_FR.UTF-8')
 # Point de départ : Tour Eiffel
 START_POINT = {"lat": 48.8584, "lon": 2.2945}
 GOOGLE_MAPS_API_KEY = "AIzaSyBGlGZg7QgWNMaK9E901QUV7lp4srXO25A"
