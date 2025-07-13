@@ -333,6 +333,9 @@ def generate_tournees_data(filters_tuple):
             print(json.dumps(route_data, indent=2) if route_data else "Aucune donnée route_data")
             if route_data:
                 directions_text = extract_directions_text(route_data)
+print("=== TEST AFFICHAGE DEBUG ===")
+print(directions_text)
+directions_text = "<ol><li>TEST AFFICHAGE MANUEL</li></ol>"
                 overview_polyline = route_data.get("overview_polyline", {}).get("points")
                 if overview_polyline:
                     decoded_points = polyline.decode(overview_polyline)
