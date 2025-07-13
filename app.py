@@ -236,15 +236,18 @@ def generate_clients_data(filters_tuple):
     livraisons_par_client.columns = ['Client', 'Nb Livraisons']
     top_client_ca_row = ca_par_client.sort_values(by='MONTANT PAYER', ascending=False).iloc[0] if not ca_par_client.empty else {'EXPEDITEUR': 'N/A', 'MONTANT PAYER': 0}
     top_client_liv_row = livraisons_par_client.iloc[0] if not livraisons_par_client.empty else {'Client': 'N/A', 'Nb Livraisons': 0}
-    df_filtered['Taux Impaye'] = (df_filtered['RESTANT A PAYER'] / df_filtered['PRIX']).fillna(0)
+    top3_ca = ca_par_client.sort_values(by='MONTANT PAYER', ascending=False).head(3)
+    top3_ca_list = [
+    {'nom': row['EXPEDITEUR'], 'valeur': int(row['MONTANT PAYER'])}
+    for _, row in top3_ca.iterrows()
+     ]
     clients_kpi = {
-        'nb_client': df_filtered['EXPEDITEUR'].nunique(),
-        'top1_ca_nom': top_client_ca_row['EXPEDITEUR'],
-        'top1_ca_valeur': int(top_client_ca_row['MONTANT PAYER']),
-        'top1_liv_nom': top_client_liv_row['Client'],
-        'top1_liv_valeur': int(top_client_liv_row['Nb Livraisons']),
-        'taux_moyen_impaye': round(df_filtered.groupby('EXPEDITEUR')['Taux Impaye'].mean().mean() * 100, 2) if not df_filtered.empty else 0
-    }
+    'nb_client': df_filtered['EXPEDITEUR'].nunique(),
+    'top3_ca_list': top3_ca_list,  # <-- nouveau champ
+    'top1_liv_nom': top_client_liv_row['Client'],
+    'top1_liv_valeur': int(top_client_liv_row['Nb Livraisons']),
+    'taux_moyen_impaye': round(df_filtered.groupby('EXPEDITEUR')['Taux Impaye'].mean().mean() * 100, 2) if not df_filtered.empty else 0
+}
     top10_ca = ca_par_client.sort_values(by='MONTANT PAYER', ascending=False).head(10)
     clients_g1 = px.bar(top10_ca, x='EXPEDITEUR', y='MONTANT PAYER', title="Top 10 Clients par Chiffre d'Affaires")
     top10_livraisons = livraisons_par_client.head(10)
