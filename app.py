@@ -279,36 +279,50 @@ def clean_html(raw_html):
     text = re.sub(r'&nbsp;|&#39;|&quot;', ' ', text)
     return text.strip()
 
-def extract_directions_text(route_data):
+# Version qui ajoute le nom du client (expéditeur) à chaque arrêt
+def extract_directions_text(route_data, df_stops=None):
     """
-    Affiche l'itinéraire ET les points d'arrêt (livraisons).
+    Affiche l'itinéraire ET les points d'arrêt (livraisons),
+    en ajoutant le nom du client s'il est fourni dans df_stops (colonne 'EXPEDITEUR').
     """
     steps_html = []
     legs = route_data.get("legs", [])
     all_waypoints = []
+    all_clients = []
     step_num = 1
 
     # Récupère la liste des points d'arrêt (livraisons)
     for i, leg in enumerate(legs):
         end_addr = leg.get("end_address", None)
+        # Cherche le client associé
+        client = None
+        if df_stops is not None and i < len(df_stops):
+            client = df_stops.iloc[i]["EXPEDITEUR"] if "EXPEDITEUR" in df_stops.columns else None
         if end_addr and end_addr not in all_waypoints:
             all_waypoints.append(end_addr)
-    
+            all_clients.append(client)
     # Affiche la liste des arrêts avant le tableau
     arrets_html = "<ul class='mb-4 pl-4'>"
-    for idx, addr in enumerate(all_waypoints, 1):
-        arrets_html += f"<li><span class='font-bold'>Arrêt {idx} :</span> {addr}</li>"
+    for idx, (addr, client) in enumerate(zip(all_waypoints, all_clients), 1):
+        if client:
+            arrets_html += f"<li><span class='font-bold'>Arrêt {idx} :</span> {addr} <span class='text-blue-700'>({client})</span></li>"
+        else:
+            arrets_html += f"<li><span class='font-bold'>Arrêt {idx} :</span> {addr}</li>"
     arrets_html += "</ul>"
 
     # Tableau détaillé du parcours
     for i, leg in enumerate(legs):
         end_addr = leg.get("end_address", None)
+        client = None
+        if df_stops is not None and i < len(df_stops):
+            client = df_stops.iloc[i]["EXPEDITEUR"] if "EXPEDITEUR" in df_stops.columns else None
         if end_addr:
             # On ajoute une ligne "Arrêt livraison" AVANT les étapes qui mènent à cet arrêt
             steps_html.append(
                 f"<tr class='bg-green-100'><td colspan='4' class='py-2 text-green-900 text-sm font-semibold'>"
-                f"Arrêt livraison {i+1} : <span class='font-normal'>{end_addr}</span>"
-                f"</td></tr>"
+                f"Arrêt livraison {i+1} : <span class='font-normal'>{end_addr}"
+                + (f" <span class='text-blue-700'>({client})</span>" if client else "")
+                + f"</span></td></tr>"
             )
         for step in leg.get("steps", []):
             instr = clean_html(step.get("html_instructions", ""))
@@ -340,6 +354,7 @@ def extract_directions_text(route_data):
         "<h3 class='mb-2 font-bold text-blue-700'>Parcours détaillé :</h3>"
         + table_html
     )
+
 
 # ===================================================================
 # OPTIMISATION DES TOURNEES

@@ -211,7 +211,119 @@
 
 
 <div x-show="main_tab === 'alertes'" x-transition>
-    <h1>alerte et diagnostique</h1>
+    <div class="max-w-4xl mx-auto mt-8 p-8 bg-white rounded-2xl shadow-2xl border">
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h2 class="text-3xl font-bold text-blue-900">Rapport Marketing & Commercial</h2>
+                <p class="text-lg text-gray-500">Client : <span class="font-semibold text-blue-700">SAS LOGIFRAIS</span></p>
+                <p class="text-xs text-gray-400">N° Compte : CLT-001245 &bull; Catégorie : Grand Compte</p>
+            </div>
+            <img src="https://img.icons8.com/color/96/000000/bar-chart.png" class="w-16 h-16" alt="Graph Icon"/>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+            <div class="bg-blue-50 rounded-xl p-6 flex flex-col gap-2 shadow-md">
+                <span class="text-gray-500 uppercase text-xs">Chiffre d'affaires 2025</span>
+                <span class="text-2xl font-extrabold text-blue-900">263 000&nbsp;€</span>
+                <span class="text-green-700 text-sm">+7,5% vs N-1</span>
+            </div>
+            <div class="bg-green-50 rounded-xl p-6 flex flex-col gap-2 shadow-md">
+                <span class="text-gray-500 uppercase text-xs">Livraisons réalisées</span>
+                <span class="text-2xl font-extrabold text-green-900">412</span>
+                <span class="text-blue-700 text-sm">100% livraisons à l'heure</span>
+            </div>
+            <div class="bg-yellow-50 rounded-xl p-6 flex flex-col gap-2 shadow-md">
+                <span class="text-gray-500 uppercase text-xs">Montant impayé</span>
+                <span class="text-2xl font-extrabold text-yellow-700">3 120&nbsp;€</span>
+                <span class="text-orange-500 text-sm">Taux d'impayés : 1,2%</span>
+            </div>
+            <div class="bg-indigo-50 rounded-xl p-6 flex flex-col gap-2 shadow-md">
+                <span class="text-gray-500 uppercase text-xs">Taux de fidélité</span>
+                <span class="text-2xl font-extrabold text-indigo-700">94,8%</span>
+                <span class="text-indigo-500 text-sm">Croissance stable</span>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+            <div>
+                <h3 class="text-lg font-bold mb-2 text-blue-700">Évolution mensuelle du CA</h3>
+                <canvas id="caChart" class="w-full h-56"></canvas>
+            </div>
+            <div>
+                <h3 class="text-lg font-bold mb-2 text-green-700">Répartition des produits</h3>
+                <canvas id="productPie" class="w-full h-56"></canvas>
+            </div>
+        </div>
+        <div class="mb-6">
+            <h4 class="text-xl font-semibold mb-2 text-gray-800">Analyse commerciale</h4>
+            <ul class="list-disc ml-6 text-gray-700 text-base space-y-1">
+                <li>Client très régulier depuis 2019, croissance continue (+7,5% cette année).</li>
+                <li>Livraisons principalement sur l’axe Paris – Île-de-France.</li>
+                <li>Demande croissante pour la logistique température dirigée (+20% sur la gamme « frais »).</li>
+                <li>Très bon comportement de paiement, quelques retards passagers sur Q1 2024.</li>
+            </ul>
+        </div>
+        <div class="mb-6">
+            <h4 class="text-xl font-semibold mb-2 text-gray-800">Recommandations marketing</h4>
+            <ol class="list-decimal ml-6 text-gray-700 text-base space-y-1">
+                <li>Lancer une offre fidélité « Livraison verte » pour encourager l’éco-livraison en centre-ville.</li>
+                <li>Proposer une visite du Hub Rungis et valoriser la fiabilité de la chaîne logistique.</li>
+                <li>Relancer les contacts pour l’extension « frigo sec ».</li>
+                <li>Accentuer la communication sur le taux de service & la traçabilité temps réel.</li>
+            </ol>
+        </div>
+        <div class="bg-yellow-100 rounded-xl p-6 flex flex-col gap-2 shadow-md">
+            <span class="font-semibold text-yellow-700">Alerte récente :</span>
+            <ul class="list-disc ml-6 text-yellow-800">
+                <li>2 livraisons retardées en février pour cause de neige (aucune pénalité appliquée).</li>
+                <li>Solde impayé à surveiller malgré régularisation rapide.</li>
+            </ul>
+        </div>
+        <div class="mt-10 flex justify-end">
+            <button class="px-6 py-2 rounded-lg bg-blue-700 text-white font-bold shadow hover:bg-blue-900 transition">Exporter en PDF</button>
+        </div>
+    </div>
+    <!-- Chart.js pour les graphiques -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+    // Données fictives pour le CA
+    const caChart = document.getElementById('caChart').getContext('2d');
+    new Chart(caChart, {
+        type: 'line',
+        data: {
+            labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'],
+            datasets: [{
+                label: 'Chiffre d\'Affaires',
+                data: [21000, 18500, 19200, 22500, 24800, 21000, 19800, 25300, 22800, 21000, 23500, 26200],
+                borderColor: '#2563eb',
+                backgroundColor: 'rgba(37,99,235,0.07)',
+                borderWidth: 3,
+                fill: true,
+                pointRadius: 3,
+            }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            responsive: true,
+            scales: { y: { beginAtZero: false } }
+        }
+    });
+    // Données fictives pour la répartition produits
+    const productPie = document.getElementById('productPie').getContext('2d');
+    new Chart(productPie, {
+        type: 'pie',
+        data: {
+            labels: ['Colis Sec', 'Colis Frais', 'Express', 'Temp. Ambiante'],
+            datasets: [{
+                data: [35, 45, 12, 8],
+                backgroundColor: ['#facc15', '#22d3ee', '#6366f1', '#fbbf24'],
+                borderWidth: 1,
+            }]
+        },
+        options: {
+            plugins: { legend: { position: 'bottom' } },
+            responsive: true,
+        }
+    });
+    </script>
 </div>
 
 <style>
