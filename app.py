@@ -490,7 +490,8 @@ def generate_tournees_data(filters_tuple):
 
         # 🔀 Appel API Google Directions
         route_data = get_google_directions_route(START_POINT, waypoints)
-
+        print("🧭 Données retournées par Google Directions API :")
+        print(json.dumps(route_data, indent=2))
         if route_data:
             steps = route_data["legs"]
             route_coords = []
