@@ -479,7 +479,7 @@ def generate_tournees_data(filters_tuple):
         if route_data:
             steps = route_data["legs"]
             route_coords = []
-
+            directions_text = extract_directions_text(route_data)
             for leg in steps:
                 start_loc = leg["start_location"]
                 route_coords.append((start_loc["lat"], start_loc["lng"]))
@@ -499,6 +499,7 @@ def generate_tournees_data(filters_tuple):
             fig_route.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":40,"l":0,"b":0})
             tournees_route = pio.to_html(fig_route, full_html=False)
         else:
+            directions_text = "<p class='text-red-600'>❌ Aucune instruction disponible.</p>"
             tournees_route = f"<p class='text-center text-red-600 mt-8'>Erreur lors de la récupération de l’itinéraire pour {date_title}.</p>"
 # Préparer les points (waypoints) pour Google Maps JS (sans Paris)
     waypoints_js = [
@@ -516,7 +517,8 @@ def generate_tournees_data(filters_tuple):
         "tournees_map":tournees_map,
         "tournees_route":tournees_route,
          "waypoints_json": waypoints_json,
-         "start_point": start_js
+         "start_point": start_js,
+         "directions_text": directions_text
     }
 
 

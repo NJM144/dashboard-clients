@@ -35,50 +35,12 @@
 </div>
 
     </div>
-<script
-  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAI9YG5QluW3jJYEDYT7HqfQjySzzoR8K8&libraries=places&callback=initMap"
-  async
-  defer
-></script>
-
-
-<script defer>
-
-    
-    const map = new google.maps.Map(document.getElementById("map"), {
-      zoom: 7,
-      center: { lat: 47.5, lng: 2.5 }, // centre sur la France
-    });
-
-    const directionsService = new google.maps.DirectionsService();
-    const directionsRenderer = new google.maps.DirectionsRenderer({
-      map: map,
-      suppressMarkers: false,
-    });
-
-    directionsService.route(
-      {
-        origin: start,
-        destination: start,
-        waypoints: waypoints,
-        optimizeWaypoints: true,
-        travelMode: google.maps.TravelMode.DRIVING,
-      },
-      function (response, status) {
-        if (status === "OK") {
-          directionsRenderer.setDirections(response);
-        } else {
-          alert("Erreur Google Maps Directions: " + status);
-        }
-      }
-    );
-  };
-
-  // Appel automatique dès que le JS est chargé
-  window.addEventListener("load", () => {
-    if (window.google) initMap();
-  });
-</script>
+<div class="mt-10 p-6 bg-white shadow rounded-lg">
+    <h2 class="text-xl font-bold mb-4">🧭 Parcours optimisé étape par étape</h2>
+    <div class="prose max-w-full">
+        {{ directions_text | safe }}
+    </div>
+</div>
 
 </body>
 </html>
