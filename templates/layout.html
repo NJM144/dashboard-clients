@@ -51,16 +51,18 @@
         <!-- conteneur principal -->
         <div class="grid grid-cols-1 md:grid-cols-12  gap-6 mb-2">
         
-                    <form method="POST" action="{{ url_for('tournees') }}">
-  <label for="date_unique" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Date de livraison</label>
-  <select id="date_unique" name="date_specifique" class="block w-full p-2 border border-gray-300 rounded">
-    {% for d in dates_disponibles %}
-      <option value="{{ d }}" {% if selected_date == d|string %}selected{% endif %}>{{ d }}</option>
-    {% endfor %}
-  </select>
-
-  <button type="submit" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded">Afficher la carte</button>
+                    <form method="POST" action="{{ url_for('tournees') }}" class="mb-6 flex flex-col md:flex-row gap-4 items-end">
+    <div>
+        <label for="date_debut" class="block mb-1 text-sm font-medium">Date de début :</label>
+        <input type="date" id="date_debut" name="date_debut" class="p-2 border rounded" value="{{ request.form.date_debut or '' }}">
+    </div>
+    <div>
+        <label for="date_fin" class="block mb-1 text-sm font-medium">Date de fin :</label>
+        <input type="date" id="date_fin" name="date_fin" class="p-2 border rounded" value="{{ request.form.date_fin or '' }}">
+    </div>
+    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Filtrer</button>
 </form>
+
                     
                    </div>
                     <div class="md:col-span-9 h-full ">
