@@ -336,7 +336,7 @@ def generate_tournees_data(filters_tuple):
               directions_text = extract_directions_text(route_data)
               print("=== TEST AFFICHAGE DEBUG ===")
               print(directions_text)
-              directions_text = "<ol><li>TEST AFFICHAGE MANUEL</li></ol>"
+              
               overview_polyline = route_data.get("overview_polyline", {}).get("points")
               if overview_polyline:
                     decoded_points = polyline.decode(overview_polyline)
@@ -371,7 +371,8 @@ def generate_tournees_data(filters_tuple):
     start_js = f"{START_POINT['lat']},{START_POINT['lon']}"
     waypoints_json = json.dumps(waypoints_js)
     print("✅ directions_text =", directions_text[:200])
-
+    print('====== directions_text FINAL ======')
+    print(directions_text)
     return {
         "tournees_map": tournees_map,
         "tournees_route": tournees_route,
