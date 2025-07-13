@@ -572,7 +572,14 @@ def tournees():
 
     # Liste des dates possibles à afficher dans le select
     dates_disponibles = sorted(df_geo["DATE DU TRANSFERT"].dt.date.dropna().unique())
-
+    # Injecter aussi le point de départ
+    start_js = f"{START_POINT['lat']},{START_POINT['lon']}"
+    waypoints_js = [
+    {"location": f"{row['lat']},{row['lon']}", "stopover": True}
+    for _, row in df.iterrows()
+]
+    import json
+    waypoints_json = json.dumps(waypoints_js)
     return render_template(
         "tournee.html",  # Nouveau template
         dates_disponibles=dates_disponibles,
