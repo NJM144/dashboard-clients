@@ -27,6 +27,26 @@ def format_fr(val):
     except Exception:
         return val
 
+def build_daily_hist_from_df(df):
+    """Construit un DataFrame d’historique journalier depuis df."""
+    if df.empty:
+        return pd.DataFrame()
+    # On s'assure de la date
+    df_hist = df.copy()
+    df_hist['jour'] = df_hist['DATE DU TRANSFERT'].dt.date
+    daily = (
+        df_hist.groupby('jour')
+        .agg({
+            'QUANTITE': 'sum',
+            'MONTANT PAYER': 'sum',
+            'RESTANT A PAYER': 'sum',
+            'PRIX': 'sum'
+        })
+        .reset_index()
+    )
+    daily['BENEFICE'] = daily['PRIX']  # tu peux adapter ce calcul si besoin
+    return daily
+
 
 def get_google_directions_route(start, waypoints):
     """
@@ -96,15 +116,19 @@ except FileNotFoundError as e:
     print(f"❌ Erreur: Fichier de données non trouvé. {e}")
     df, df_geo = pd.DataFrame(), pd.DataFrame()
 # Après chargement du df
-df_daily_hist = (
-    df.groupby(df["DATE DU TRANSFERT"].dt.date)
-    .agg({
-        "QUANTITE": "sum",
-        "BENEFICE": "sum",
-        "RESTANT A PAYER": "sum"
-    })
-    .reset_index()
-)
+try:
+    df = pd.read_csv("data/Transferts_classes.csv", sep=';')
+    df["DATE DU TRANSFERT"] = pd.to_datetime(df["DATE DU TRANSFERT"], format="%d/%m/%Y %H:%M", errors="coerce")
+    df_geo = pd.read_csv("data/ListeTransfert_geocode (2).csv", sep=';')
+    df_geo["DATE DU TRANSFERT"] = pd.to_datetime(df_geo["DATE DU TRANSFERT"], format="%d/%m/%Y %H:%M", errors="coerce")
+except FileNotFoundError as e:
+    print(f"❌ Erreur: Fichier de données non trouvé. {e}")
+    df, df_geo = pd.DataFrame(), pd.DataFrame()
+
+
+df_daily_hist = build_daily_hist_from_df(df)
+
+
 df_daily_hist = df_daily_hist.rename(columns={"DATE DU TRANSFERT": "jour"})    
 # ===================================================================
 # FONCTION DE FILTRAGE (UTILITAIRE)
