@@ -6,7 +6,7 @@
 import os
 from datetime import date as _date
 from typing import Dict
-
+import requests
 import pandas as pd
 import plotly.express as px
 import plotly.io as pio
@@ -15,6 +15,41 @@ from flask_caching import Cache  # 👈 CORRECTION: Import manquant
 from joblib import load
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
+
+# Point de départ : Tour Eiffel
+START_POINT = {"lat": 48.8584, "lon": 2.2945}
+GOOGLE_MAPS_API_KEY = "AIzaSyBGlGZg7QgWNMaK9E901QUV7lp4srXO25A"
+
+
+def get_google_directions_route(start, waypoints):
+    """
+    Appelle l'API Google Directions pour optimiser l'ordre des livraisons.
+    """
+    base_url = "https://maps.googleapis.com/maps/api/directions/json"
+    origin = f"{start['lat']},{start['lon']}"
+    destination = origin  # boucle fermée
+
+    wp_str = "|".join([f"{p['lat']},{p['lon']}" for p in waypoints])
+    waypoints_str = f"optimize:true|{wp_str}"
+
+    params = {
+        "origin": origin,
+        "destination": destination,
+        "waypoints": waypoints_str,
+        "key": GOOGLE_MAPS_API_KEY
+    }
+
+    response = requests.get(base_url, params=params)
+    data = response.json()
+
+    if data["status"] == "OK":
+        return data["routes"][0]
+    else:
+        print("❌ Erreur Google Directions:", data.get("status"), data.get("error_message"))
+        return None
+
+
+
 
 app = Flask(__name__)
 
@@ -417,8 +452,7 @@ def generate_tournees_data(filters_tuple):
     fig_map.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":40,"l":0,"b":0})
     tournees_map = pio.to_html(fig_map, full_html=False)
 
-    # --- Itinéraire optimisé pour une date spécifique ---
-    # On utilise la date du filtre 'date_specifique'. Sinon, on prend la date la plus fréquente.
+        # --- Itinéraire optimisé pour une date spécifique ---
     selected_date_str = request.form.get("date_specifique")
     df_geo_valid = df_geo.dropna(subset=['lat', 'lon', 'DATE DU TRANSFERT'])
     df_geo_valid['DATE'] = df_geo_valid['DATE DU TRANSFERT'].dt.date
@@ -431,54 +465,41 @@ def generate_tournees_data(filters_tuple):
         date_title = f"la date la plus fréquente ({target_date.strftime('%d/%m/%Y') if target_date else 'N/A'})"
 
     tournees_route = "<p class='text-center text-gray-500 mt-8'>Veuillez sélectionner une date spécifique pour calculer un itinéraire optimisé.</p>"
+
     if target_date:
         df_day = df_geo_valid[df_geo_valid['DATE'] == target_date].copy()
 
-        # Fonction de calcul d'itinéraire (la même que tu avais)
-        def compute_naive_route(df_route_calc):
-            from geopy.distance import geodesic
-            if df_route_calc.empty:
-                return pd.DataFrame()
-            
-            visited = []
-            remaining = df_route_calc.copy()
-            current = remaining.iloc[0]
-            visited.append(current)
-            remaining = remaining.drop(current.name)
-            
-            while not remaining.empty:
-                current_point = (current['lat'], current['lon'])
-                distances = remaining.apply(lambda row: geodesic(current_point, (row['lat'], row['lon'])).km, axis=1)
-                next_index = distances.idxmin()
-                current = remaining.loc[next_index]
-                visited.append(current)
-                remaining = remaining.drop(next_index)
-            return pd.DataFrame(visited)
+        # 🔁 Extraire les waypoints du jour
+        waypoints = df_day[["lat", "lon"]].to_dict(orient="records")
 
-        df_route = compute_naive_route(df_day)
+        # 🔀 Appel API Google Directions
+        route_data = get_google_directions_route(START_POINT, waypoints)
 
-        if not df_route.empty:
-            # Ajout d'un numéro pour l'ordre de passage
-            df_route['Ordre'] = range(1, len(df_route) + 1)
-            
+        if route_data:
+            steps = route_data["legs"]
+            route_coords = []
+
+            for leg in steps:
+                start_loc = leg["start_location"]
+                route_coords.append((start_loc["lat"], start_loc["lng"]))
+            # Dernier point
+            route_coords.append((steps[-1]["end_location"]["lat"], steps[-1]["end_location"]["lng"]))
+
+            df_route = pd.DataFrame(route_coords, columns=["lat", "lon"])
+
             fig_route = px.line_mapbox(
-                df_route.sort_values('Ordre'),  # ✅ assure l'ordre
+                df_route,
                 lat='lat',
                 lon='lon',
-                text='Ordre',
-                hover_name='EXPEDITEUR',
-                hover_data={'ADRESSES': True, 'Ordre': True},
-                color_discrete_sequence=["#facc15"],
-                zoom=8,
+                zoom=10,
                 height=600,
-                title=f"Itinéraire optimisé pour {date_title}"
+                title=f"Trajet optimisé via Google Maps – {date_title}"
             )
-
-            fig_route.update_traces(textposition="top right", textfont=dict(color="black", size=12))
             fig_route.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":40,"l":0,"b":0})
             tournees_route = pio.to_html(fig_route, full_html=False)
         else:
-            tournees_route = f"<p class='text-center text-gray-500 mt-8'>Aucune donnée géolocalisée trouvée pour {date_title}.</p>"
+            tournees_route = f"<p class='text-center text-red-600 mt-8'>Erreur lors de la récupération de l’itinéraire pour {date_title}.</p>"
+
     return{
         "tournees_map":tournees_map,
         "tournees_route":tournees_route
