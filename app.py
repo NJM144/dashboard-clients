@@ -435,6 +435,7 @@ def extract_directions_text(route_data):
 # =======================================================================
     # SECTION 5 : OPTIMISATION DES TOURNEES
 # =======================================================================
+import json
 @cache.memoize()
 def generate_tournees_data(filters_tuple):
     filters_dict = dict(filters_tuple)
@@ -526,7 +527,7 @@ def generate_tournees_data(filters_tuple):
 # Injecter aussi le point de départ
     start_js = f"{START_POINT['lat']},{START_POINT['lon']}"
 
-    import json
+    
     waypoints_json = json.dumps(waypoints_js)
     
     return{
