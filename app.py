@@ -499,10 +499,23 @@ def generate_tournees_data(filters_tuple):
             tournees_route = pio.to_html(fig_route, full_html=False)
         else:
             tournees_route = f"<p class='text-center text-red-600 mt-8'>Erreur lors de la récupération de l’itinéraire pour {date_title}.</p>"
+# Préparer les points (waypoints) pour Google Maps JS (sans Paris)
+    waypoints_js = [
+    {"location": f"{row['lat']},{row['lon']}", "stopover": True}
+    for _, row in df_day.iterrows()
+]
 
+# Injecter aussi le point de départ
+    start_js = f"{START_POINT['lat']},{START_POINT['lon']}"
+
+    import json
+    waypoints_json = json.dumps(waypoints_js)
+    
     return{
         "tournees_map":tournees_map,
-        "tournees_route":tournees_route
+        "tournees_route":tournees_route,
+         "waypoints_json": waypoints_json,
+         "start_point": start_js
     }
 
 
