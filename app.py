@@ -532,7 +532,8 @@ def dashboard():
     types   = ["Tous"] + sorted(df[col_class].dropna().unique())
     annees  = ["Tous"] + sorted(df["DATE DU TRANSFERT"].dt.year.dropna().unique().astype(str))
     mois    = ["Tous"] + [str(m).zfill(2) for m in sorted(df["DATE DU TRANSFERT"].dt.month.dropna().unique())]
-    
+    # Extraire les dates disponibles (triées)
+    dates_disponibles = sorted(df_geo["DATE DU TRANSFERT"].dt.date.dropna().unique())
     return render_template(
         "dashboard.html",
         # Listes pour les filtres
