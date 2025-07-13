@@ -329,29 +329,26 @@ def generate_tournees_data(filters_tuple):
         print("🧭 Données retournées par Google Directions API :")
         print(json.dumps(route_data, indent=2) if route_data else "Aucune donnée route_data")
         if route_data:
-            steps = route_data["legs"]
-            route_coords = []
-            directions_text = extract_directions_text(route_data)
-            for leg in steps:
-                start_loc = leg["start_location"]
-                route_coords.append((start_loc["lat"], start_loc["lng"]))
-            route_coords.append((steps[-1]["end_location"]["lat"], steps[-1]["end_location"]["lng"]))
-            df_route = pd.DataFrame(route_coords, columns=["lat", "lon"])
-            fig_route = px.line_mapbox(
-                df_route,
-                lat='lat',
-                lon='lon',
-                zoom=10,
-                height=600,
-                title=f"Trajet optimisé via Google Maps – {date_title}"
-            )
-            fig_route.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":40,"l":0,"b":0})
-            tournees_route = pio.to_html(fig_route, full_html=False)
+           directions_text = extract_directions_text(route_data)
+           overview_polyline = route_data.get("overview_polyline", {}).get("points")
+           if overview_polyline:
+              decoded_points = polyline.decode(overview_polyline)
+              df_route = pd.DataFrame(decoded_points, columns=["lat", "lon"])
+              fig_route = px.line_mapbox(
+              df_route,
+              lat='lat',
+              lon='lon',
+              zoom=10,
+              height=600,
+              title=f"Trajet optimisé via Google Maps – {date_title}"
+              )
+              fig_route.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":40,"l":0,"b":0})
+              tournees_route = pio.to_html(fig_route, full_html=False)
+           else:
+              tournees_route = "<p class='text-red-600'>Impossible d'obtenir le tracé précis de la route.</p>"
+
         else:
-            directions_text = "<p class='text-red-600'>❌ Aucune instruction disponible.</p>"
-            tournees_route = f"<p class='text-center text-red-600 mt-8'>Erreur lors de la récupération de l’itinéraire pour {date_title}.</p>"
-    else:
-        directions_text = "<p class='text-gray-500'>Aucune date sélectionnée ou donnée disponible.</p>"
+           directions_text = "<p class='text-gray-500'>Aucune date sélectionnée ou donnée disponible.</p>"
     if target_date and not df_day.empty:
         waypoints_js = [
             {"location": f"{row['lat']},{row['lon']}", "stopover": True}
