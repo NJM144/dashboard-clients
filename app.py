@@ -270,16 +270,75 @@ def generate_logistique_data(filters_tuple):
 # ===================================================================
 # UTILITAIRE POUR LES ÉTAPES GOOGLE DIRECTIONS
 # ===================================================================
+import re
+
+def clean_html(raw_html):
+    clean = re.compile('<.*?>')
+    text = re.sub(clean, '', raw_html)
+    text = re.sub(r'&nbsp;|&#39;|&quot;', ' ', text)
+    return text.strip()
+
 def extract_directions_text(route_data):
+    """
+    Affiche l'itinéraire ET les points d'arrêt (livraisons).
+    """
     steps_html = []
     legs = route_data.get("legs", [])
-    for leg in legs:
+    all_waypoints = []
+    step_num = 1
+
+    # Récupère la liste des points d'arrêt (livraisons)
+    for i, leg in enumerate(legs):
+        end_addr = leg.get("end_address", None)
+        if end_addr and end_addr not in all_waypoints:
+            all_waypoints.append(end_addr)
+    
+    # Affiche la liste des arrêts avant le tableau
+    arrets_html = "<ul class='mb-4 pl-4'>"
+    for idx, addr in enumerate(all_waypoints, 1):
+        arrets_html += f"<li><span class='font-bold'>Arrêt {idx} :</span> {addr}</li>"
+    arrets_html += "</ul>"
+
+    # Tableau détaillé du parcours
+    for i, leg in enumerate(legs):
+        end_addr = leg.get("end_address", None)
+        if end_addr:
+            # On ajoute une ligne "Arrêt livraison" AVANT les étapes qui mènent à cet arrêt
+            steps_html.append(
+                f"<tr class='bg-green-100'><td colspan='4' class='py-2 text-green-900 text-sm font-semibold'>"
+                f"Arrêt livraison {i+1} : <span class='font-normal'>{end_addr}</span>"
+                f"</td></tr>"
+            )
         for step in leg.get("steps", []):
-            instr = step.get("html_instructions", "")
+            instr = clean_html(step.get("html_instructions", ""))
             distance = step.get("distance", {}).get("text", "")
             duration = step.get("duration", {}).get("text", "")
-            steps_html.append(f"<li>{instr} <span class='text-gray-500'>({distance}, {duration})</span></li>")
-    return "<ol class='list-decimal list-inside space-y-1'>" + "\n".join(steps_html) + "</ol>"
+            steps_html.append(
+                f"<tr>"
+                f"<td class='font-bold'>{step_num}</td>"
+                f"<td>{instr}</td>"
+                f"<td>{distance}</td>"
+                f"<td>{duration}</td>"
+                f"</tr>"
+            )
+            step_num += 1
+
+    # Génération du tableau HTML
+    if not steps_html:
+        return "<p class='text-red-600'>Aucune instruction extraite !</p>"
+    table_html = (
+        "<table class='table-auto w-full border text-xs md:text-base'><thead>"
+        "<tr class='bg-gray-200'><th>#</th><th>Instruction</th><th>Distance</th><th>Durée</th></tr>"
+        "</thead><tbody>"
+        + "\n".join(steps_html) +
+        "</tbody></table>"
+    )
+    return (
+        "<h3 class='mb-2 font-bold text-green-700'>Liste des arrêts de livraison :</h3>"
+        + arrets_html +
+        "<h3 class='mb-2 font-bold text-blue-700'>Parcours détaillé :</h3>"
+        + table_html
+    )
 
 # ===================================================================
 # OPTIMISATION DES TOURNEES
