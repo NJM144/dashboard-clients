@@ -507,55 +507,31 @@ def generate_alertes_data(filters_tuple):
 @app.route('/')
 def home():
     return render_template('home.html')
-
+    
 @app.route('/dashboard', methods=['GET', 'POST'])
 def dashboard():
-    """
-    Cette route est maintenant beaucoup plus simple. Son rôle est de:
-    1. Récupérer les listes pour les menus déroulants des filtres.
-    2. Appeler les fonctions cachées pour obtenir les données.
-    3. Envoyer le tout au template.
-    """
-    # Créer un tuple des filtres pour le passer aux fonctions cachées
     filters_for_cache = tuple(request.form.items())
-    
-    # Appeler les fonctions qui vont soit calculer, soit récupérer depuis le cache
+
     performance_data = generate_performance_data(filters_for_cache)
     finance_data = generate_finance_data(filters_for_cache)
     clients_data = generate_clients_data(filters_for_cache)
     logistique_data = generate_logistique_data(filters_for_cache)
     tournees_data = generate_tournees_data(filters_for_cache)
 
-    # Récupérer les listes pour les menus déroulants (peut aussi être mis en cache !)
-    col_class = 'CLASSE_COLIS' if 'CLASSE_COLIS' in df.columns else 'TYPE COLIS'
-    clients = ["Tous"] + sorted(df["EXPEDITEUR"].dropna().unique())
-    types   = ["Tous"] + sorted(df[col_class].dropna().unique())
-    annees  = ["Tous"] + sorted(df["DATE DU TRANSFERT"].dt.year.dropna().unique().astype(str))
-    mois    = ["Tous"] + [str(m).zfill(2) for m in sorted(df["DATE DU TRANSFERT"].dt.month.dropna().unique())]
-    # Extraire les dates disponibles (triées)
+    # ✅ Liste des dates extraites de df_geo
     dates_disponibles = sorted(df_geo["DATE DU TRANSFERT"].dt.date.dropna().unique())
+
     return render_template(
         "dashboard.html",
-        # Listes pour les filtres
-        clients=clients, types=types, annees=annees, mois=mois,
-        
-        # Valeurs sélectionnées pour les filtres
-        selected_client=request.form.get("client", "Tous"),
-        selected_type=request.form.get("type_colis", "Tous"),
-        selected_annee=request.form.get("annee", "Tous"),
-        selected_mois=request.form.get("mois", "Tous"),
+        dates_disponibles=dates_disponibles,
         selected_date=request.form.get("date_specifique", ""),
-        selected_date_debut=request.form.get("date_debut", ""),
-        selected_date_fin=request.form.get("date_fin", ""),
-        
-        # Données des onglets (on utilise ** pour "déballer" les dictionnaires)
         **performance_data,
         **finance_data,
         **clients_data,
         **logistique_data,
-        **tournees_data,
-      
+        **tournees_data
     )
+
     
 # La route /prediction reste inchangée
 @app.route("/prediction", methods=["GET", "POST"])
