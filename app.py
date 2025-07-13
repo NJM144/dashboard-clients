@@ -14,7 +14,7 @@ from joblib import load
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 import polyline
-import numpy as n
+import numpy as np
 
 # Point de départ : Tour Eiffel
 START_POINT = {"lat": 48.8584, "lon": 2.2945}
