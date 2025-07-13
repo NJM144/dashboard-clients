@@ -1,6 +1,3 @@
-# ===================================================================
-# 1. IMPORTS ET CONFIGURATION
-# ===================================================================
 import os
 from datetime import date as _date
 from typing import Dict
@@ -8,38 +5,27 @@ import requests
 import pandas as pd
 import plotly.express as px
 import plotly.io as pio
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request
 from flask_caching import Cache
-from joblib import load
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import train_test_split
-import polyline   # <<--- Pour décoder le tracé Google
+import polyline
 
-# Point de départ : Tour Eiffel
-START_POINT = {"lat": 48.8584, "lon": 2.2945}
+START_POINT = {"lat": 48.8584, "lon": 2.2945}  # Tour Eiffel
 GOOGLE_MAPS_API_KEY = "AIzaSyBGlGZg7QgWNMaK9E901QUV7lp4srXO25A"
 
 def get_google_directions_route(start, waypoints):
-    """
-    Appelle l'API Google Directions pour optimiser l'ordre des livraisons.
-    """
     base_url = "https://maps.googleapis.com/maps/api/directions/json"
     origin = f"{start['lat']},{start['lon']}"
-    destination = origin  # boucle fermée
-
+    destination = origin
     wp_str = "|".join([f"{p['lat']},{p['lon']}" for p in waypoints])
-    waypoints_str = f"optimize:true|{wp_str}"
-
+    waypoints_str = f"optimize:true|{wp_str}" if wp_str else ""
     params = {
         "origin": origin,
         "destination": destination,
         "waypoints": waypoints_str,
         "key": GOOGLE_MAPS_API_KEY
     }
-
     response = requests.get(base_url, params=params)
     data = response.json()
-
     if data["status"] == "OK":
         return data["routes"][0]
     else:
@@ -47,19 +33,14 @@ def get_google_directions_route(start, waypoints):
         return None
 
 app = Flask(__name__)
-
-# Configuration du cache
-config = {
+app.config.from_mapping({
     "DEBUG": True,
     "CACHE_TYPE": "SimpleCache",
-    "CACHE_DEFAULT_TIMEOUT": 300  # 5 minutes
-}
-app.config.from_mapping(config)
+    "CACHE_DEFAULT_TIMEOUT": 300
+})
 cache = Cache(app)
 
-# ===================================================================
-# 2. CHARGEMENT DES DONNÉES ET MODÈLES (une seule fois au démarrage)
-# ===================================================================
+# ========== CHARGEMENT DONNÉES ==========
 try:
     df = pd.read_csv("data/Transferts_classes.csv", sep=';')
     df["DATE DU TRANSFERT"] = pd.to_datetime(df["DATE DU TRANSFERT"], format="%d/%m/%Y %H:%M", errors="coerce")
@@ -69,9 +50,6 @@ except FileNotFoundError as e:
     print(f"❌ Erreur: Fichier de données non trouvé. {e}")
     df, df_geo = pd.DataFrame(), pd.DataFrame()
 
-# ===================================================================
-# FONCTION DE FILTRAGE (UTILITAIRE)
-# ===================================================================
 def filter_df(df_source: pd.DataFrame, form: Dict[str, str]) -> pd.DataFrame:
     df_out = df_source.copy()
     if (client := form.get("client")) and client != "Tous":
@@ -95,10 +73,6 @@ def filter_df(df_source: pd.DataFrame, form: Dict[str, str]) -> pd.DataFrame:
             print(f"❌ Erreur de plage de dates : {e}")
     return df_out
 
-# ===================================================================
-# FONCTION PERFORMANCE
-# (Les autres fonctions sont identiques à avant, cf. messages précédents)
-# ===================================================================
 @cache.memoize()
 def generate_performance_data(filters_tuple):
     filters_dict = dict(filters_tuple)
@@ -150,14 +124,111 @@ def generate_performance_data(filters_tuple):
         "perf_g3": pio.to_html(fig_perf3, full_html=False)
     }
 
-# ===================================================================
-# (Les autres fonctions generate_finance_data, generate_clients_data, generate_logistique_data restent inchangées)
-# (voir messages précédents pour leur code si besoin)
-# ===================================================================
+@cache.memoize()
+def generate_finance_data(filters_tuple):
+    filters_dict = dict(filters_tuple)
+    df_filtered = filter_df(df, filters_dict)
+    col_class = 'CLASSE_COLIS' if 'CLASSE_COLIS' in df_filtered.columns else 'TYPE COLIS'
+    df_filtered["Taux Impaye"] = (df_filtered["RESTANT A PAYER"] / df_filtered["PRIX"]).fillna(0)
+    fin_kpi = {
+        "ca_total": int(df_filtered["MONTANT PAYER"].sum()),
+        "restant_total": int(df_filtered["RESTANT A PAYER"].sum()),
+        "taux_encaissement": round(df_filtered["MONTANT PAYER"].sum() / df_filtered["PRIX"].sum() * 100, 2) if df_filtered["PRIX"].sum() > 0 else 0,
+        "top_client_ca": df_filtered.groupby("EXPEDITEUR")["MONTANT PAYER"].sum().idxmax() if not df_filtered.empty else "N/A",
+        "top_client_impaye": df_filtered.groupby("EXPEDITEUR")["RESTANT A PAYER"].sum().idxmax() if not df_filtered.empty else "N/A",
+        "ca_moyen_expedition": int(df_filtered["MONTANT PAYER"].mean()) if len(df_filtered) > 0 else 0,
+        "taux_impaye_moyen": round(df_filtered["Taux Impaye"].mean() * 100, 2)
+    }
+    top_ca = (
+        df_filtered.groupby('EXPEDITEUR')['MONTANT PAYER']
+        .sum().sort_values(ascending=False).head(10).reset_index()
+    )
+    fig_fin1 = px.bar(
+        top_ca, x='EXPEDITEUR', y='MONTANT PAYER',
+        title="Top 10 clients – chiffre d'affaires"
+    )
+    top_impaye = (
+        df_filtered.groupby('EXPEDITEUR')['RESTANT A PAYER']
+        .sum().sort_values(ascending=False).head(10).reset_index()
+    )
+    fig_fin2 = px.bar(
+        top_impaye, x='EXPEDITEUR', y='RESTANT A PAYER',
+        title="Top 10 clients – impayés"
+    )
+    df_month = df_filtered.copy()
+    df_month['Mois'] = df_month['DATE DU TRANSFERT'].dt.to_period('M').astype(str)
+    df_month = (
+        df_month.groupby('Mois')[['MONTANT PAYER', 'RESTANT A PAYER']]
+        .sum().reset_index()
+    )
+    fig_fin3 = px.line(
+        df_month, x='Mois',
+        y=['MONTANT PAYER', 'RESTANT A PAYER'],
+        title="CA vs impayés (mensuel)"
+    )
+    return {
+        "fin_kpi": fin_kpi,
+        "fin_g1": pio.to_html(fig_fin1, full_html=False),
+        "fin_g2": pio.to_html(fig_fin2, full_html=False),
+        "fin_g3": pio.to_html(fig_fin3, full_html=False)
+    }
 
-# ===================================================================
-# UTILITAIRE POUR LES ÉTAPES GOOGLE DIRECTIONS
-# ===================================================================
+@cache.memoize()
+def generate_clients_data(filters_tuple):
+    filters_dict = dict(filters_tuple)
+    df_filtered = filter_df(df, filters_dict)
+    ca_par_client = df_filtered.groupby('EXPEDITEUR')['MONTANT PAYER'].sum().reset_index()
+    livraisons_par_client = df_filtered['EXPEDITEUR'].value_counts().reset_index()
+    livraisons_par_client.columns = ['Client', 'Nb Livraisons']
+    top_client_ca_row = ca_par_client.sort_values(by='MONTANT PAYER', ascending=False).iloc[0] if not ca_par_client.empty else {'EXPEDITEUR': 'N/A', 'MONTANT PAYER': 0}
+    top_client_liv_row = livraisons_par_client.iloc[0] if not livraisons_par_client.empty else {'Client': 'N/A', 'Nb Livraisons': 0}
+    df_filtered['Taux Impaye'] = (df_filtered['RESTANT A PAYER'] / df_filtered['PRIX']).fillna(0)
+    clients_kpi = {
+        'nb_client': df_filtered['EXPEDITEUR'].nunique(),
+        'top1_ca_nom': top_client_ca_row['EXPEDITEUR'],
+        'top1_ca_valeur': int(top_client_ca_row['MONTANT PAYER']),
+        'top1_liv_nom': top_client_liv_row['Client'],
+        'top1_liv_valeur': int(top_client_liv_row['Nb Livraisons']),
+        'taux_moyen_impaye': round(df_filtered.groupby('EXPEDITEUR')['Taux Impaye'].mean().mean() * 100, 2) if not df_filtered.empty else 0
+    }
+    top10_ca = ca_par_client.sort_values(by='MONTANT PAYER', ascending=False).head(10)
+    clients_g1 = px.bar(top10_ca, x='EXPEDITEUR', y='MONTANT PAYER', title="Top 10 Clients par Chiffre d'Affaires")
+    top10_livraisons = livraisons_par_client.head(10)
+    clients_g2 = px.bar(top10_livraisons, x='Client', y='Nb Livraisons', title="Top 10 Clients par Nombre de Livraisons")
+    clients_g3 = px.pie(top10_ca, names='EXPEDITEUR', values='MONTANT PAYER', title="Répartition du CA (Top 10)", hole=0.4)
+    return {
+        "clients_kpi": clients_kpi,
+        "clients_g1": pio.to_html(clients_g1, full_html=False),
+        "clients_g2": pio.to_html(clients_g2, full_html=False),
+        "clients_g3": pio.to_html(clients_g3, full_html=False),
+    }
+
+@cache.memoize()
+def generate_logistique_data(filters_tuple):
+    filters_dict = dict(filters_tuple)
+    df_filtered = filter_df(df, filters_dict)
+    col_class = 'CLASSE_COLIS' if 'CLASSE_COLIS' in df_filtered.columns else 'TYPE COLIS'
+    logistique_kpi = {
+        'nb_expeditions': len(df_filtered),
+        'volume_total': int(df_filtered['QUANTITE'].sum()),
+        'nb_types_colis': df_filtered[col_class].nunique(),
+        'type_plus_frequent': df_filtered[col_class].mode()[0] if not df_filtered.empty else 'N/A',
+        'client_top_volume': df_filtered.groupby('EXPEDITEUR')['QUANTITE'].sum().idxmax() if not df_filtered.empty else 'N/A',
+    }
+    df_volume_type = df_filtered.groupby(col_class)['QUANTITE'].sum().reset_index()
+    logistique_g1 = px.pie(df_volume_type, names=col_class, values='QUANTITE', title="Répartition du Volume par Type de Colis")
+    df_volume_clients = df_filtered.groupby('EXPEDITEUR')['QUANTITE'].sum().nlargest(10).reset_index()
+    logistique_g2 = px.bar(df_volume_clients, x='EXPEDITEUR', y='QUANTITE', title="Top 10 Clients par Volume Expédié")
+    df_volume_mensuel = df_filtered.set_index('DATE DU TRANSFERT').resample('ME')['QUANTITE'].sum().reset_index()
+    df_volume_mensuel['Mois'] = df_volume_mensuel['DATE DU TRANSFERT'].dt.strftime('%Y-%m')
+    logistique_g3 = px.line(df_volume_mensuel, x='Mois', y='QUANTITE', title="Évolution Mensuelle des Volumes Expédiés")
+    return {
+        "logistique_kpi": logistique_kpi,
+        "logistique_g1": pio.to_html(logistique_g1, full_html=False),
+        "logistique_g2": pio.to_html(logistique_g2, full_html=False),
+        "logistique_g3": pio.to_html(logistique_g3, full_html=False),
+    }
+
 def extract_directions_text(route_data):
     steps_html = []
     legs = route_data.get("legs", [])
@@ -169,9 +240,6 @@ def extract_directions_text(route_data):
             steps_html.append(f"<li>{instr} <span class='text-gray-500'>({distance}, {duration})</span></li>")
     return "<ol class='list-decimal list-inside space-y-1'>" + "\n".join(steps_html) + "</ol>"
 
-# ===================================================================
-# OPTIMISATION DES TOURNEES
-# ===================================================================
 @cache.memoize()
 def generate_tournees_data(filters_tuple):
     import json
@@ -214,8 +282,6 @@ def generate_tournees_data(filters_tuple):
         df_day = df_geo_valid[df_geo_valid['DATE'] == target_date].copy()
         waypoints = df_day[["lat", "lon"]].to_dict(orient="records")
         route_data = get_google_directions_route(START_POINT, waypoints)
-        print("🧭 Données retournées par Google Directions API :")
-        print(json.dumps(route_data, indent=2) if route_data else "Aucune donnée route_data")
         if route_data:
             directions_text = extract_directions_text(route_data)
             overview_polyline = route_data.get("overview_polyline", {}).get("points")
@@ -248,7 +314,6 @@ def generate_tournees_data(filters_tuple):
         waypoints_js = []
     start_js = f"{START_POINT['lat']},{START_POINT['lon']}"
     waypoints_json = json.dumps(waypoints_js)
-    print("✅ directions_text =", directions_text[:200])
     return {
         "tournees_map": tournees_map,
         "tournees_route": tournees_route,
@@ -257,9 +322,6 @@ def generate_tournees_data(filters_tuple):
         "directions_text": directions_text
     }
 
-# ===================================================================
-# 5. ROUTES FLASK
-# ===================================================================
 @app.route('/')
 def home():
     return render_template('home.html')
@@ -268,7 +330,9 @@ def home():
 def dashboard():
     filters_for_cache = tuple(request.form.items())
     performance_data = generate_performance_data(filters_for_cache)
-    # Ajoute les autres sections si tu veux, cf. versions précédentes
+    finance_data = generate_finance_data(filters_for_cache)
+    clients_data = generate_clients_data(filters_for_cache)
+    logistique_data = generate_logistique_data(filters_for_cache)
     tournees_data = generate_tournees_data(filters_for_cache)
     dates_disponibles = sorted(df_geo["DATE DU TRANSFERT"].dt.date.dropna().unique())
     return render_template(
@@ -276,6 +340,9 @@ def dashboard():
         dates_disponibles=dates_disponibles,
         selected_date=request.form.get("date_specifique", ""),
         **performance_data,
+        **finance_data,
+        **clients_data,
+        **logistique_data,
         **tournees_data
     )
 
@@ -289,27 +356,6 @@ def tournees():
         dates_disponibles=dates_disponibles,
         selected_date=request.form.get("date_specifique", ""),
         **tournees_data
-    )
-
-@app.route("/prediction", methods=["GET", "POST"])
-def prediction():
-    if model_pred is None:
-        return "<h3>⚠️ Modèle indisponible. Vérifiez le fichier joblib.</h3>"
-    date_str = request.form.get("date_cible") or str(_date.today() + pd.Timedelta(days=1))
-    target = pd.to_datetime(date_str)
-    features = pd.DataFrame([{
-        "jour_semaine": target.dayofweek,
-        "mois":         target.month
-    }])
-    pred = model_pred.predict(features)[0]
-    pred_colis, pred_benef, pred_credit = int(pred[0]), round(pred[1], 2), round(pred[2], 2)
-    # Ajoute l'affichage des historiques ou des graphes si besoin
-    return render_template(
-        "prediction.html",
-        selected_date=date_str,
-        pred_colis=pred_colis,
-        pred_benef=pred_benef,
-        pred_credit=pred_credit
     )
 
 if __name__ == '__main__':
