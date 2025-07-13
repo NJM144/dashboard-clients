@@ -51,7 +51,7 @@
         <!-- conteneur principal -->
         <div class="grid grid-cols-1 md:grid-cols-12  gap-6 mb-2">
         
-                    <form method="POST" action="{{ url_for('dashboard') }}">
+                    <form method="POST" action="{{ url_for('tournees') }}">
   <label for="date_unique" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Date de livraison</label>
   <select id="date_unique" name="date_specifique" class="block w-full p-2 border border-gray-300 rounded">
     {% for d in dates_disponibles %}
