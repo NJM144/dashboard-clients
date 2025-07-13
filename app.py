@@ -332,12 +332,12 @@ def generate_tournees_data(filters_tuple):
             print("🧭 Données retournées par Google Directions API :")
             print(json.dumps(route_data, indent=2) if route_data else "Aucune donnée route_data")
             if route_data:
-                directions_text = extract_directions_text(route_data)
-print("=== TEST AFFICHAGE DEBUG ===")
-print(directions_text)
-directions_text = "<ol><li>TEST AFFICHAGE MANUEL</li></ol>"
-                overview_polyline = route_data.get("overview_polyline", {}).get("points")
-                if overview_polyline:
+              directions_text = extract_directions_text(route_data)
+              print("=== TEST AFFICHAGE DEBUG ===")
+              print(directions_text)
+              directions_text = "<ol><li>TEST AFFICHAGE MANUEL</li></ol>"
+              overview_polyline = route_data.get("overview_polyline", {}).get("points")
+              if overview_polyline:
                     decoded_points = polyline.decode(overview_polyline)
                     df_route = pd.DataFrame(decoded_points, columns=["lat", "lon"])
                     fig_route = px.line_mapbox(
@@ -350,7 +350,7 @@ directions_text = "<ol><li>TEST AFFICHAGE MANUEL</li></ol>"
                     )
                     fig_route.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":40,"l":0,"b":0})
                     tournees_route = pio.to_html(fig_route, full_html=False)
-                else:
+              else:
                     tournees_route = "<p class='text-red-600'>Impossible d'obtenir le tracé précis de la route.</p>"
             else:
                 directions_text = "<p class='text-red-600'>❌ Aucune instruction disponible (Google API n'a rien retourné).</p>"
