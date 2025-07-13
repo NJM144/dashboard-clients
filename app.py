@@ -76,6 +76,7 @@ except FileNotFoundError as e:
     print(f"❌ Erreur: Fichier de données non trouvé. {e}")
     df, df_geo = pd.DataFrame(), pd.DataFrame()
 
+df=df_geo
 # --- Entraînement/Chargement du modèle de prédiction ---
 # NOTE: J'ai supprimé la définition de fonction dupliquée
 def train_prediction_model(csv_path="data/Transferts_complet.csv"):
