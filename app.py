@@ -95,26 +95,17 @@ try:
 except FileNotFoundError as e:
     print(f"❌ Erreur: Fichier de données non trouvé. {e}")
     df, df_geo = pd.DataFrame(), pd.DataFrame()
-try:
-    df = pd.read_csv("data/Transferts_classes.csv", sep=';')
-    df["DATE DU TRANSFERT"] = pd.to_datetime(df["DATE DU TRANSFERT"], format="%d/%m/%Y %H:%M", errors="coerce")
-    df_geo = pd.read_csv("data/ListeTransfert_geocode (2).csv", sep=';')
-    df_geo["DATE DU TRANSFERT"] = pd.to_datetime(df_geo["DATE DU TRANSFERT"], format="%d/%m/%Y %H:%M", errors="coerce")
-    # Ajoute cet historique quotidien :
-    df_daily_hist = (
-        df.groupby(df["DATE DU TRANSFERT"].dt.date)
-        .agg({
-            "QUANTITE": "sum",
-            "BENEFICE": "sum",
-            "RESTANT A PAYER": "sum"
-        })
-        .reset_index()
-    )
-    df_daily_hist = df_daily_hist.rename(columns={"DATE DU TRANSFERT": "jour"})
-except FileNotFoundError as e:
-    print(f"❌ Erreur: Fichier de données non trouvé. {e}")
-    df, df_geo, df_daily_hist = pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
-    
+# Après chargement du df
+df_daily_hist = (
+    df.groupby(df["DATE DU TRANSFERT"].dt.date)
+    .agg({
+        "QUANTITE": "sum",
+        "BENEFICE": "sum",
+        "RESTANT A PAYER": "sum"
+    })
+    .reset_index()
+)
+df_daily_hist = df_daily_hist.rename(columns={"DATE DU TRANSFERT": "jour"})    
 # ===================================================================
 # FONCTION DE FILTRAGE (UTILITAIRE)
 # ===================================================================
