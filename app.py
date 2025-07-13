@@ -394,17 +394,26 @@ def generate_tournees_data(filters_tuple):
     df_map_filtered = filter_df(df_geo, request.form) # On utilise le df géocodé
     df_map_filtered = df_map_filtered.dropna(subset=['lat', 'lon'])
 
+# Assure que la date est bien au format datetime
+    df_map_filtered['DATE DU TRANSFERT'] = pd.to_datetime(df_map_filtered['DATE DU TRANSFERT'], errors='coerce')
+    df_map_filtered['DATE_STR'] = df_map_filtered['DATE DU TRANSFERT'].dt.strftime('%Y-%m-%d')
+
     fig_map = px.scatter_mapbox(
-        df_map_filtered,
-        lat='lat',
-        lon='lon',
-        hover_name='EXPEDITEUR',
-        hover_data={'ADRESSES': True, 'DATE DU TRANSFERT': True, 'TYPE COLIS': True},
-        color=col_class, # col_class a été défini au début de la fonction
-        zoom=4,
-        height=600,
-        title="Carte interactive des livraisons filtrées"
-    )
+    df_map_filtered,
+    lat='lat',
+    lon='lon',
+    hover_name='EXPEDITEUR',
+    hover_data={
+        'ADRESSES': True,
+        'DATE DU TRANSFERT': True,
+        'TYPE COLIS': True
+    },
+    color='DATE_STR',  # ✅ Couleur selon la date de livraison
+    zoom=4,
+    height=600,
+    title="Carte interactive des livraisons par date"
+)
+
     fig_map.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":40,"l":0,"b":0})
     tournees_map = pio.to_html(fig_map, full_html=False)
 
