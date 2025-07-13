@@ -362,6 +362,7 @@ def generate_tournees_data(filters_tuple):
     start_js = f"{START_POINT['lat']},{START_POINT['lon']}"
     waypoints_json = json.dumps(waypoints_js)
     print("✅ directions_text =", directions_text[:200])
+    
     return {
         "tournees_map": tournees_map,
         "tournees_route": tournees_route,
