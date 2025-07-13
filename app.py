@@ -417,6 +417,21 @@ def generate_logistique_data(filters_tuple):
         
     }
 
+def extract_directions_text(route_data):
+    """
+    Extrait les instructions étape par étape du trajet Google Directions.
+    Retourne une chaîne HTML avec les rues, distances et durées.
+    """
+    steps_html = []
+    legs = route_data.get("legs", [])
+    for leg in legs:
+        for step in leg.get("steps", []):
+            instr = step.get("html_instructions", "")
+            distance = step.get("distance", {}).get("text", "")
+            duration = step.get("duration", {}).get("text", "")
+            steps_html.append(f"<li>{instr} <span class='text-gray-500'>({distance}, {duration})</span></li>")
+    return "<ol class='list-decimal list-inside space-y-1'>" + "\n".join(steps_html) + "</ol>"
+
 # =======================================================================
     # SECTION 5 : OPTIMISATION DES TOURNEES
 # =======================================================================
