@@ -60,13 +60,13 @@ def get_google_directions_route(start, waypoints):
 
 app = Flask(__name__)
 
-
 @app.template_filter('mille')
 def mille_sep(value):
     try:
         return f"{int(value):,}".replace(",", ".")
-    except:
+    except Exception:
         return value
+
     
 # Configuration du cache
 config = {
