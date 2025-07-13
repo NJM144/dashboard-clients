@@ -36,14 +36,14 @@
 
     </div>
 <script
-  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAI9YG5QluW3jJYEDYT7HqfQjySzzoR8K8&libraries=places"
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAI9YG5QluW3jJYEDYT7HqfQjySzzoR8K8&libraries=places&callback=initMap"
+  async
   defer
 ></script>
 
+
 <script defer>
-  window.initMap = function () {
-    const start = "{{ start_point }}";
-    const waypoints = {{ waypoints_json | safe }};
+
     
     const map = new google.maps.Map(document.getElementById("map"), {
       zoom: 7,

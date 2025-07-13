@@ -577,6 +577,8 @@ def tournees():
         "tournee.html",  # Nouveau template
         dates_disponibles=dates_disponibles,
         selected_date=request.form.get("date_specifique", ""),
+        start_point=start_js,
+        waypoints_json=waypoints_json,
         **tournees_data
     )
 
