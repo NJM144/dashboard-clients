@@ -15,7 +15,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 import polyline
 import numpy as np
-
+from joblib import load
 # Point de départ : Tour Eiffel
 START_POINT = {"lat": 48.8584, "lon": 2.2945}
 GOOGLE_MAPS_API_KEY = "AIzaSyBGlGZg7QgWNMaK9E901QUV7lp4srXO25A"
@@ -64,6 +64,15 @@ def mille_sep(value):
         return f"{int(value):,}".replace(",", ".")
     except Exception:
         return value
+
+
+
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "model", "model_random_forest.joblib")
+try:
+    model_pred = load(MODEL_PATH)
+except Exception as e:
+    print("❌ Erreur chargement modèle :", e)
+    model_pred = None
 
     
 # Configuration du cache
