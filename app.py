@@ -320,35 +320,43 @@ def generate_tournees_data(filters_tuple):
     else:
         target_date = df_geo_valid['DATE'].mode()[0] if not df_geo_valid.empty else None
         date_title = f"la date la plus fréquente ({target_date.strftime('%d/%m/%Y') if target_date else 'N/A'})"
+
     tournees_route = "<p class='text-center text-gray-500 mt-8'>Veuillez sélectionner une date spécifique pour calculer un itinéraire optimisé.</p>"
     directions_text = ""
+    # Cas où on a une date cible
     if target_date:
         df_day = df_geo_valid[df_geo_valid['DATE'] == target_date].copy()
-        waypoints = df_day[["lat", "lon"]].to_dict(orient="records")
-        route_data = get_google_directions_route(START_POINT, waypoints)
-        print("🧭 Données retournées par Google Directions API :")
-        print(json.dumps(route_data, indent=2) if route_data else "Aucune donnée route_data")
-        if route_data:
-           directions_text = extract_directions_text(route_data)
-           overview_polyline = route_data.get("overview_polyline", {}).get("points")
-           if overview_polyline:
-              decoded_points = polyline.decode(overview_polyline)
-              df_route = pd.DataFrame(decoded_points, columns=["lat", "lon"])
-              fig_route = px.line_mapbox(
-              df_route,
-              lat='lat',
-              lon='lon',
-              zoom=10,
-              height=600,
-              title=f"Trajet optimisé via Google Maps – {date_title}"
-              )
-              fig_route.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":40,"l":0,"b":0})
-              tournees_route = pio.to_html(fig_route, full_html=False)
-           else:
-              tournees_route = "<p class='text-red-600'>Impossible d'obtenir le tracé précis de la route.</p>"
-
+        if not df_day.empty and len(df_day) > 1:
+            waypoints = df_day[["lat", "lon"]].to_dict(orient="records")
+            route_data = get_google_directions_route(START_POINT, waypoints)
+            print("🧭 Données retournées par Google Directions API :")
+            print(json.dumps(route_data, indent=2) if route_data else "Aucune donnée route_data")
+            if route_data:
+                directions_text = extract_directions_text(route_data)
+                overview_polyline = route_data.get("overview_polyline", {}).get("points")
+                if overview_polyline:
+                    decoded_points = polyline.decode(overview_polyline)
+                    df_route = pd.DataFrame(decoded_points, columns=["lat", "lon"])
+                    fig_route = px.line_mapbox(
+                        df_route,
+                        lat='lat',
+                        lon='lon',
+                        zoom=10,
+                        height=600,
+                        title=f"Trajet optimisé via Google Maps – {date_title}"
+                    )
+                    fig_route.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":40,"l":0,"b":0})
+                    tournees_route = pio.to_html(fig_route, full_html=False)
+                else:
+                    tournees_route = "<p class='text-red-600'>Impossible d'obtenir le tracé précis de la route.</p>"
+            else:
+                directions_text = "<p class='text-red-600'>❌ Aucune instruction disponible (Google API n'a rien retourné).</p>"
         else:
-           directions_text = "<p class='text-gray-500'>Aucune date sélectionnée ou donnée disponible.</p>"
+            directions_text = "<p class='text-gray-500'>Pas assez de points pour calculer une tournée ce jour-là.</p>"
+    else:
+        directions_text = "<p class='text-gray-500'>Aucune date sélectionnée ou donnée disponible.</p>"
+
+    # Points JS pour carte Google si besoin
     if target_date and not df_day.empty:
         waypoints_js = [
             {"location": f"{row['lat']},{row['lon']}", "stopover": True}
@@ -359,7 +367,7 @@ def generate_tournees_data(filters_tuple):
     start_js = f"{START_POINT['lat']},{START_POINT['lon']}"
     waypoints_json = json.dumps(waypoints_js)
     print("✅ directions_text =", directions_text[:200])
-    
+
     return {
         "tournees_map": tournees_map,
         "tournees_route": tournees_route,
