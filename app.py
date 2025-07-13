@@ -507,7 +507,7 @@ def generate_alertes_data(filters_tuple):
 @app.route('/')
 def home():
     return render_template('home.html')
-    
+
 @app.route('/dashboard', methods=['GET', 'POST'])
 def dashboard():
     filters_for_cache = tuple(request.form.items())
@@ -529,6 +529,20 @@ def dashboard():
         **finance_data,
         **clients_data,
         **logistique_data,
+        **tournees_data
+    )
+@app.route("/tournees", methods=["GET", "POST"])
+def tournees():
+    filters_for_cache = tuple(request.form.items())
+    tournees_data = generate_tournees_data(filters_for_cache)
+
+    # Liste des dates possibles à afficher dans le select
+    dates_disponibles = sorted(df_geo["DATE DU TRANSFERT"].dt.date.dropna().unique())
+
+    return render_template(
+        "tournee.html",  # Nouveau template
+        dates_disponibles=dates_disponibles,
+        selected_date=request.form.get("date_specifique", ""),
         **tournees_data
     )
 

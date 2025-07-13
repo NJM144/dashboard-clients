@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Carte des tournées</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-6">
+
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-2xl font-bold mb-4">Carte interactive des livraisons</h1>
+
+        <form method="POST" action="{{ url_for('tournees') }}" class="mb-6">
+            <label for="date_unique" class="block mb-2 text-sm font-medium text-gray-900">Choisir une date de livraison :</label>
+            <select id="date_unique" name="date_specifique" class="block w-full p-2 border border-gray-300 rounded">
+                {% for d in dates_disponibles %}
+                  <option value="{{ d }}" {% if selected_date == d|string %}selected{% endif %}>{{ d }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded">Afficher la carte</button>
+        </form>
+
+        <!-- Carte Mapbox -->
+        <div class="mb-8">
+            {{ tournees_map | safe }}
+        </div>
+
+        <!-- Itinéraire optimisé -->
+        <div>
+            {{ tournees_route | safe }}
+        </div>
+    </div>
+
+</body>
+</html>
