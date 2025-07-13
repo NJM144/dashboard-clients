@@ -1,3 +1,6 @@
+# ===================================================================
+# 1. IMPORTS ET CONFIGURATION
+# ===================================================================
 import os
 from datetime import date as _date
 from typing import Dict
@@ -5,27 +8,37 @@ import requests
 import pandas as pd
 import plotly.express as px
 import plotly.io as pio
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 from flask_caching import Cache
-import polyline
+from joblib import load
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
 
-START_POINT = {"lat": 48.8584, "lon": 2.2945}  # Tour Eiffel
+# Point de départ : Tour Eiffel
+START_POINT = {"lat": 48.8584, "lon": 2.2945}
 GOOGLE_MAPS_API_KEY = "AIzaSyBGlGZg7QgWNMaK9E901QUV7lp4srXO25A"
 
 def get_google_directions_route(start, waypoints):
+    """
+    Appelle l'API Google Directions pour optimiser l'ordre des livraisons.
+    """
     base_url = "https://maps.googleapis.com/maps/api/directions/json"
     origin = f"{start['lat']},{start['lon']}"
-    destination = origin
+    destination = origin  # boucle fermée
+
     wp_str = "|".join([f"{p['lat']},{p['lon']}" for p in waypoints])
-    waypoints_str = f"optimize:true|{wp_str}" if wp_str else ""
+    waypoints_str = f"optimize:true|{wp_str}"
+
     params = {
         "origin": origin,
         "destination": destination,
         "waypoints": waypoints_str,
         "key": GOOGLE_MAPS_API_KEY
     }
+
     response = requests.get(base_url, params=params)
     data = response.json()
+
     if data["status"] == "OK":
         return data["routes"][0]
     else:
@@ -33,14 +46,19 @@ def get_google_directions_route(start, waypoints):
         return None
 
 app = Flask(__name__)
-app.config.from_mapping({
+
+# Configuration du cache
+config = {
     "DEBUG": True,
     "CACHE_TYPE": "SimpleCache",
-    "CACHE_DEFAULT_TIMEOUT": 300
-})
+    "CACHE_DEFAULT_TIMEOUT": 300  # 5 minutes
+}
+app.config.from_mapping(config)
 cache = Cache(app)
 
-# ========== CHARGEMENT DONNÉES ==========
+# ===================================================================
+# 2. CHARGEMENT DES DONNÉES ET MODÈLES (une seule fois au démarrage)
+# ===================================================================
 try:
     df = pd.read_csv("data/Transferts_classes.csv", sep=';')
     df["DATE DU TRANSFERT"] = pd.to_datetime(df["DATE DU TRANSFERT"], format="%d/%m/%Y %H:%M", errors="coerce")
@@ -50,6 +68,9 @@ except FileNotFoundError as e:
     print(f"❌ Erreur: Fichier de données non trouvé. {e}")
     df, df_geo = pd.DataFrame(), pd.DataFrame()
 
+# ===================================================================
+# FONCTION DE FILTRAGE (UTILITAIRE)
+# ===================================================================
 def filter_df(df_source: pd.DataFrame, form: Dict[str, str]) -> pd.DataFrame:
     df_out = df_source.copy()
     if (client := form.get("client")) and client != "Tous":
@@ -73,6 +94,9 @@ def filter_df(df_source: pd.DataFrame, form: Dict[str, str]) -> pd.DataFrame:
             print(f"❌ Erreur de plage de dates : {e}")
     return df_out
 
+# ===================================================================
+# FONCTION PERFORMANCE
+# ===================================================================
 @cache.memoize()
 def generate_performance_data(filters_tuple):
     filters_dict = dict(filters_tuple)
@@ -124,18 +148,26 @@ def generate_performance_data(filters_tuple):
         "perf_g3": pio.to_html(fig_perf3, full_html=False)
     }
 
+# ===================================================================
+# FONCTION FINANCE
+# ===================================================================
 @cache.memoize()
 def generate_finance_data(filters_tuple):
     filters_dict = dict(filters_tuple)
     df_filtered = filter_df(df, filters_dict)
     col_class = 'CLASSE_COLIS' if 'CLASSE_COLIS' in df_filtered.columns else 'TYPE COLIS'
+    total_prix = df_filtered["PRIX"].sum()
+    ca_total = df_filtered["MONTANT PAYER"].sum()
+    restant_total = df_filtered["RESTANT A PAYER"].sum()
+    top_client_ca = df_filtered.groupby("EXPEDITEUR")["MONTANT PAYER"].sum().idxmax() if not df_filtered.empty else "N/A"
+    top_client_impaye = df_filtered.groupby("EXPEDITEUR")["RESTANT A PAYER"].sum().idxmax() if not df_filtered.empty else "N/A"
     df_filtered["Taux Impaye"] = (df_filtered["RESTANT A PAYER"] / df_filtered["PRIX"]).fillna(0)
     fin_kpi = {
         "ca_total": int(df_filtered["MONTANT PAYER"].sum()),
         "restant_total": int(df_filtered["RESTANT A PAYER"].sum()),
         "taux_encaissement": round(df_filtered["MONTANT PAYER"].sum() / df_filtered["PRIX"].sum() * 100, 2) if df_filtered["PRIX"].sum() > 0 else 0,
-        "top_client_ca": df_filtered.groupby("EXPEDITEUR")["MONTANT PAYER"].sum().idxmax() if not df_filtered.empty else "N/A",
-        "top_client_impaye": df_filtered.groupby("EXPEDITEUR")["RESTANT A PAYER"].sum().idxmax() if not df_filtered.empty else "N/A",
+        "top_client_ca": top_client_ca,
+        "top_client_impaye": top_client_impaye,
         "ca_moyen_expedition": int(df_filtered["MONTANT PAYER"].mean()) if len(df_filtered) > 0 else 0,
         "taux_impaye_moyen": round(df_filtered["Taux Impaye"].mean() * 100, 2)
     }
@@ -173,6 +205,9 @@ def generate_finance_data(filters_tuple):
         "fin_g3": pio.to_html(fig_fin3, full_html=False)
     }
 
+# ===================================================================
+# FONCTION CLIENTS
+# ===================================================================
 @cache.memoize()
 def generate_clients_data(filters_tuple):
     filters_dict = dict(filters_tuple)
@@ -203,6 +238,9 @@ def generate_clients_data(filters_tuple):
         "clients_g3": pio.to_html(clients_g3, full_html=False),
     }
 
+# ===================================================================
+# FONCTION LOGISTIQUE
+# ===================================================================
 @cache.memoize()
 def generate_logistique_data(filters_tuple):
     filters_dict = dict(filters_tuple)
@@ -229,6 +267,9 @@ def generate_logistique_data(filters_tuple):
         "logistique_g3": pio.to_html(logistique_g3, full_html=False),
     }
 
+# ===================================================================
+# UTILITAIRE POUR LES ÉTAPES GOOGLE DIRECTIONS
+# ===================================================================
 def extract_directions_text(route_data):
     steps_html = []
     legs = route_data.get("legs", [])
@@ -240,6 +281,9 @@ def extract_directions_text(route_data):
             steps_html.append(f"<li>{instr} <span class='text-gray-500'>({distance}, {duration})</span></li>")
     return "<ol class='list-decimal list-inside space-y-1'>" + "\n".join(steps_html) + "</ol>"
 
+# ===================================================================
+# OPTIMISATION DES TOURNEES
+# ===================================================================
 @cache.memoize()
 def generate_tournees_data(filters_tuple):
     import json
@@ -282,24 +326,27 @@ def generate_tournees_data(filters_tuple):
         df_day = df_geo_valid[df_geo_valid['DATE'] == target_date].copy()
         waypoints = df_day[["lat", "lon"]].to_dict(orient="records")
         route_data = get_google_directions_route(START_POINT, waypoints)
+        print("🧭 Données retournées par Google Directions API :")
+        print(json.dumps(route_data, indent=2) if route_data else "Aucune donnée route_data")
         if route_data:
+            steps = route_data["legs"]
+            route_coords = []
             directions_text = extract_directions_text(route_data)
-            overview_polyline = route_data.get("overview_polyline", {}).get("points")
-            if overview_polyline:
-                decoded_points = polyline.decode(overview_polyline)
-                df_route = pd.DataFrame(decoded_points, columns=["lat", "lon"])
-                fig_route = px.line_mapbox(
-                    df_route,
-                    lat='lat',
-                    lon='lon',
-                    zoom=10,
-                    height=600,
-                    title=f"Trajet optimisé via Google Maps – {date_title}"
-                )
-                fig_route.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":40,"l":0,"b":0})
-                tournees_route = pio.to_html(fig_route, full_html=False)
-            else:
-                tournees_route = "<p class='text-red-600'>Impossible d'obtenir le tracé précis de la route.</p>"
+            for leg in steps:
+                start_loc = leg["start_location"]
+                route_coords.append((start_loc["lat"], start_loc["lng"]))
+            route_coords.append((steps[-1]["end_location"]["lat"], steps[-1]["end_location"]["lng"]))
+            df_route = pd.DataFrame(route_coords, columns=["lat", "lon"])
+            fig_route = px.line_mapbox(
+                df_route,
+                lat='lat',
+                lon='lon',
+                zoom=10,
+                height=600,
+                title=f"Trajet optimisé via Google Maps – {date_title}"
+            )
+            fig_route.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":40,"l":0,"b":0})
+            tournees_route = pio.to_html(fig_route, full_html=False)
         else:
             directions_text = "<p class='text-red-600'>❌ Aucune instruction disponible.</p>"
             tournees_route = f"<p class='text-center text-red-600 mt-8'>Erreur lors de la récupération de l’itinéraire pour {date_title}.</p>"
@@ -314,6 +361,8 @@ def generate_tournees_data(filters_tuple):
         waypoints_js = []
     start_js = f"{START_POINT['lat']},{START_POINT['lon']}"
     waypoints_json = json.dumps(waypoints_js)
+    print("✅ directions_text =", directions_text[:200])
+    
     return {
         "tournees_map": tournees_map,
         "tournees_route": tournees_route,
@@ -322,6 +371,9 @@ def generate_tournees_data(filters_tuple):
         "directions_text": directions_text
     }
 
+# ===================================================================
+# 5. ROUTES FLASK
+# ===================================================================
 @app.route('/')
 def home():
     return render_template('home.html')
@@ -356,6 +408,40 @@ def tournees():
         dates_disponibles=dates_disponibles,
         selected_date=request.form.get("date_specifique", ""),
         **tournees_data
+    )
+
+@app.route("/prediction", methods=["GET", "POST"])
+def prediction():
+    if model_pred is None:
+        return "<h3>⚠️ Modèle indisponible. Vérifiez le fichier joblib.</h3>"
+    date_str = request.form.get("date_cible") or str(_date.today() + pd.Timedelta(days=1))
+    target = pd.to_datetime(date_str)
+    features = pd.DataFrame([{
+        "jour_semaine": target.dayofweek,
+        "mois":         target.month
+    }])
+    pred = model_pred.predict(features)[0]
+    pred_colis, pred_benef, pred_credit = int(pred[0]), round(pred[1], 2), round(pred[2], 2)
+    df_hist = df_daily_hist.sort_values("jour").copy()
+    fut_label = target.date().isoformat()
+    def make_fig(col, title, value):
+        aux = df_hist[["jour", col]].copy()
+        aux.loc[len(aux)] = [fut_label, value]
+        fig = px.line(aux, x="jour", y=col, title=title)
+        fig.update_traces(mode="lines+markers")
+        return pio.to_html(fig, full_html=False)
+    graph_colis  = make_fig("QUANTITE",        "Historique quantité + prédiction", pred_colis)
+    graph_benef  = make_fig("BENEFICE",        "Historique bénéfice + prédiction", pred_benef)
+    graph_credit = make_fig("RESTANT A PAYER", "Historique crédit + prédiction",   pred_credit)
+    return render_template(
+        "prediction.html",
+        selected_date=date_str,
+        pred_colis=pred_colis,
+        pred_benef=pred_benef,
+        pred_credit=pred_credit,
+        graph_colis=graph_colis,
+        graph_benef=graph_benef,
+        graph_credit=graph_credit
     )
 
 if __name__ == '__main__':
