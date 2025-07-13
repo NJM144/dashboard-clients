@@ -13,7 +13,7 @@ from flask_caching import Cache
 from joblib import load
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
-
+import polyline
 # Point de départ : Tour Eiffel
 START_POINT = {"lat": 48.8584, "lon": 2.2945}
 GOOGLE_MAPS_API_KEY = "AIzaSyBGlGZg7QgWNMaK9E901QUV7lp4srXO25A"
