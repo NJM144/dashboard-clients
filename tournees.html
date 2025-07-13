@@ -2,14 +2,16 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Carte des tournées</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 p-6">
+
     <div class="max-w-4xl mx-auto">
         <h1 class="text-2xl font-bold mb-4">Carte interactive des livraisons</h1>
 
+        <!-- Formulaire sélection de la date -->
         <form method="POST" action="{{ url_for('tournees') }}" class="mb-6">
             <label for="date_unique" class="block mb-2 text-sm font-medium text-gray-900">Choisir une date de livraison :</label>
             <select id="date_unique" name="date_specifique" class="block w-full p-2 border border-gray-300 rounded">
@@ -20,36 +22,26 @@
             <button type="submit" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded">Afficher la carte</button>
         </form>
 
+        <!-- Carte Plotly Mapbox -->
         <div class="mb-8">
             {{ tournees_map | safe }}
         </div>
 
-        <div class="mt-10">
-            <h2 class="text-xl font-semibold mb-2">📍 Itinéraire optimisé sur Google Maps</h2>
-            <div id="map" style="height: 600px;"></div>
+        <!-- Itinéraire optimisé (carte Google ou Mapbox/Plotly) -->
+        <div class="mb-8">
+            {{ tournees_route | safe }}
         </div>
 
+        <!-- Etapes détaillées -->
+        {% if directions_text %}
         <div class="mt-10 p-6 bg-white shadow rounded-lg">
             <h2 class="text-xl font-bold mb-4">🧭 Parcours optimisé étape par étape</h2>
             <div class="prose max-w-full">
                 {{ directions_text | safe }}
             </div>
         </div>
+        {% endif %}
     </div>
 
-   
-    <script async
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAI9YG5QluW3jJYEDYT7HqfQjySzzoR8K8&callback=initMap">
-    </script>
-    <script>
-      function initMap() {
-        const map = new google.maps.Map(document.getElementById("map"), {
-          zoom: 12,
-          center: { lat: 48.8584, lng: 2.2945 }
-        });
-      }
-    </script>
-    -->
 </body>
 </html>
-
