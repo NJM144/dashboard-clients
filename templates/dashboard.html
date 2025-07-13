@@ -64,10 +64,10 @@
     <!-- ===================== LIGNE 1 : 4 KPI ===================== -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
     {% for kpi in [
-        ['CA encaissé', fin_kpi.ca_total|mille ~ ' FCFA'],
-        ['Montant restant à payer', fin_kpi.restant_total|mille ~ ' FCFA'],
+        ['CA encaissé', fin_kpi.ca_total|mille ~ ' Euro'],
+        ['Montant restant à payer', fin_kpi.restant_total|mille ~ ' Euro'],
         ['Taux d\'encaissement', fin_kpi.taux_encaissement ~ ' %'],
-        ['CA moyen / expédition', fin_kpi.ca_moyen_expedition ~ ' FCFA']
+        ['CA moyen / expédition', fin_kpi.ca_moyen_expedition ~ 'Euro']
     ] %}
         <div class="bg-white p-4 rounded-xl shadow text-center">
         <p class="text-md text-yellow-500">{{ kpi[0] }}</p>
