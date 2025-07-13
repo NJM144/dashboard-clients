@@ -179,19 +179,33 @@
 </div>
 
 <div x-show="main_tab === 'tournees'" x-transition class="space-y-6">
-    <div class="bg-white p-4 rounded-xl shadow">
-        <h2 class="text-lg font-semibold text-center mb-2">Carte des livraisons</h2>
-        <p class="text-sm text-gray-500 text-center mb-4">Affiche toutes les livraisons correspondant aux filtres. Zoomez pour voir les détails.</p>
-        {{ tournees_map|safe }}
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-2xl font-bold mb-4">Carte interactive des livraisons</h1>
+
+        <form method="POST" action="{{ url_for('tournees') }}" class="mb-6">
+            <label for="date_unique" class="block mb-2 text-sm font-medium text-gray-900">Choisir une date de livraison :</label>
+            <select id="date_unique" name="date_specifique" class="block w-full p-2 border border-gray-300 rounded">
+                {% for d in dates_disponibles %}
+                  <option value="{{ d }}" {% if selected_date == d|string %}selected{% endif %}>{{ d }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded">Afficher la carte</button>
+        </form>
+
+        <!-- Carte Mapbox -->
+        <div class="mb-8">
+            {{ tournees_map | safe }}
+        </div>
+
+        <!-- Itinéraire optimisé -->
+        <div>
+            {{ tournees_route | safe }}
+        </div>
     </div>
-    
-    <div class="bg-white p-4 rounded-xl shadow">
-        <h2 class="text-lg font-semibold text-center mb-2">Optimisation de la tournée</h2>
-        <p class="text-sm text-gray-500 text-center mb-4">
-            Utilisez le filtre "Date spécifique" pour calculer l'itinéraire optimisé (ordre de passage le plus court) pour un jour donné.
-        </p>
-        {{ tournees_route|safe }}
-    </div>
+    <div >
+  
+    {{ directions_text | safe }}
+</div>
 </div>
 
 
