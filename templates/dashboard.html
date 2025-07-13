@@ -39,10 +39,7 @@
             <p class="text-sm text-gray-500">Taux de croissance</p>
             <p class="text-xl font-bold text-red-600">{{ perf_kpi.taux_croissance }}</p>
         </div>
-        <div class="bg-white p-4 rounded-xl shadow text-center">
-            <p class="text-sm text-gray-500">Taux de recurrence client</p>
-            <p class="text-xl font-bold text-red-600">{{ perf_kpi.taux_recurrence_client }}</p>
-        </div>
+        
         
     </div>
     <div class="space-y-6">
@@ -67,8 +64,8 @@
     <!-- ===================== LIGNE 1 : 4 KPI ===================== -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
     {% for kpi in [
-        ['CA encaissé', fin_kpi.ca_total ~ ' FCFA'],
-        ['Montant restant à payer', fin_kpi.restant_total ~ ' FCFA'],
+        ['CA encaissé', fin_kpi.ca_total|mille ~ ' FCFA'],
+        ['Montant restant à payer', fin_kpi.restant_total|mille ~ ' FCFA'],
         ['Taux d\'encaissement', fin_kpi.taux_encaissement ~ ' %'],
         ['CA moyen / expédition', fin_kpi.ca_moyen_expedition ~ ' FCFA']
     ] %}
