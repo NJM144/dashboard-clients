@@ -21,11 +21,11 @@
     <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div class="bg-white p-4 rounded-xl shadow text-center">
             <p class="text-sm text-gray-500">Volume total expédié</p>
-            <p class="text-xl font-bold text-blue-700">{{ perf_kpi.volume_total }}</p>
+            <p class="text-xl font-bold text-blue-700">{{ perf_kpi.volume_total|mille }}</p>
         </div>
         <div class="bg-white p-4 rounded-xl shadow text-center">
             <p class="text-sm text-gray-500">Nombre d'expéditions</p>
-            <p class="text-lg font-bold text-green-600">{{ perf_kpi.nb_expeditions }}</p>
+            <p class="text-lg font-bold text-green-600">{{ perf_kpi.nb_expeditions|mille }}</p>
         </div>
         <div class="bg-white p-4 rounded-xl shadow text-center">
             <p class="text-sm text-gray-500">Types de colis distincts</p>
@@ -125,7 +125,7 @@
     <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div class="bg-white p-4 rounded-xl shadow text-center">
             <p class="text-sm text-gray-500">Nombre total de clients</p>
-            <p class="text-xl font-bold text-blue-700">{{ clients_kpi.nb_client }}</p>
+            <p class="text-xl font-bold text-blue-700">{{ clients_kpi.nb_client|mille }}</p>
         </div>
         <div class="bg-white p-4 rounded-xl shadow text-center">
             <p class="text-sm text-gray-500">Top 1 client (CA)</p>
@@ -151,11 +151,11 @@
     <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div class="bg-white p-4 rounded-lg shadow text-center">
             <p class="text-sm text-gray-600">Nb. total d’expéditions</p>
-            <p class="text-2xl font-bold text-blue-700">{{ logistique_kpi.nb_expeditions }}</p>
+            <p class="text-2xl font-bold text-blue-700">{{ logistique_kpi.nb_expeditions|mille }}</p>
         </div>
         <div class="bg-white p-4 rounded-lg shadow text-center">
             <p class="text-sm text-gray-600">Volume total expédié</p>
-            <p class="text-2xl font-bold text-green-700">{{ logistique_kpi.volume_total }}</p>
+            <p class="text-2xl font-bold text-green-700">{{ logistique_kpi.volume_total|mille }}</p>
         </div>
         <div class="bg-white p-4 rounded-lg shadow text-center">
             <p class="text-sm text-gray-600">Nombre de types de colis</p>

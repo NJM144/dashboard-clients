@@ -14,9 +14,20 @@ from joblib import load
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 import polyline
+from babel.numbers import format_decimal
+import locale
+locale.setlocale(locale.LC_ALL, 'fr_FR.UTF-8')
 # Point de départ : Tour Eiffel
 START_POINT = {"lat": 48.8584, "lon": 2.2945}
 GOOGLE_MAPS_API_KEY = "AIzaSyBGlGZg7QgWNMaK9E901QUV7lp4srXO25A"
+
+
+def format_fr(val):
+    try:
+        return locale.format_string("%d", int(val), grouping=True)
+    except Exception:
+        return val
+
 
 def get_google_directions_route(start, waypoints):
     """
@@ -48,6 +59,12 @@ def get_google_directions_route(start, waypoints):
 
 app = Flask(__name__)
 
+
+# Ajoute le filtre Jinja2 pour l'utiliser dans tes templates
+@app.template_filter('mille')
+def mille_sep_filter(val):
+    return format_fr(val)
+    
 # Configuration du cache
 config = {
     "DEBUG": True,
