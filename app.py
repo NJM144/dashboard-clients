@@ -67,7 +67,7 @@ try:
 except FileNotFoundError as e:
     print(f"❌ Erreur: Fichier de données non trouvé. {e}")
     df, df_geo = pd.DataFrame(), pd.DataFrame()
-
+    
 # ===================================================================
 # FONCTION DE FILTRAGE (UTILITAIRE)
 # ===================================================================
@@ -294,7 +294,7 @@ def generate_tournees_data(filters_tuple):
     df_map_filtered = df_map_filtered.dropna(subset=['lat', 'lon'])
     df_map_filtered['DATE DU TRANSFERT'] = pd.to_datetime(df_map_filtered['DATE DU TRANSFERT'], errors='coerce')
     df_map_filtered['DATE_STR'] = df_map_filtered['DATE DU TRANSFERT'].dt.strftime('%Y-%m-%d')
-    df_day = df_day.head(20)
+    
     fig_map = px.scatter_mapbox(
         df_map_filtered,
         lat='lat',
