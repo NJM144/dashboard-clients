@@ -34,6 +34,7 @@ def get_google_directions_route(start, waypoints):
         "destination": destination,
         "waypoints": waypoints_str,
         "key": GOOGLE_MAPS_API_KEY
+        "language": "fr" 
     }
 
     response = requests.get(base_url, params=params)
