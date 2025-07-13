@@ -33,7 +33,7 @@ def get_google_directions_route(start, waypoints):
         "origin": origin,
         "destination": destination,
         "waypoints": waypoints_str,
-        "key": GOOGLE_MAPS_API_KEY
+        "key": GOOGLE_MAPS_API_KEY,
         "language": "fr" 
     }
 
